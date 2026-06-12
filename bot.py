@@ -129,7 +129,7 @@ def main():
     app.add_handler(CallbackQueryHandler(button_callback))
     
     logger.info("Bot ishga tushmoqda...")
-    app.run_polling()
+    app.run_polling(stop_signals=())
 
 if __name__ == "__main__":
     main()
