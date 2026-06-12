@@ -1,132 +1,314 @@
-import json
+﻿import json
 import logging
 import asyncio
-from telegram import Update, KeyboardButton, ReplyKeyboardMarkup, WebAppInfo, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler
+import os
+from telegram import Update, KeyboardButton, ReplyKeyboardMarkup, WebAppInfo, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardRemove
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler, ConversationHandler
 
 from config import BOT_TOKEN, WEBAPP_URL
 import database as db
-import ai_engine
 
-# Logging
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+ADMIN_ID = 162634410
+
+(RECEIPT, EXPERT_BIO, EXPERT_FEEDBACK, ADMIN_PRICE, ADMIN_CARD, ADMIN_CHANNEL_ID, ADMIN_CHANNEL_URL, ADMIN_CHANNEL_DEL) = range(8)
+
+def get_main_keyboard():
+    return ReplyKeyboardMarkup([
+        [KeyboardButton("🤖 AI Tekshiruv (Bepul)", web_app=WebAppInfo(url=WEBAPP_URL))],
+        [KeyboardButton("👨‍🏫 Ekspertga tekshirish (Pullik)")],
+        [KeyboardButton("👤 Kabinet"), KeyboardButton("🎓 Ekspert bo'lish")]
+    ], resize_keyboard=True)
+
+async def check_sub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    user_id = update.effective_user.id
+    channels = db.get_channels()
+    if not channels: return True
+    is_sub = True
+    keyboard = []
+    for cid, title, url in channels:
+        try:
+            member = await context.bot.get_chat_member(chat_id=cid, user_id=user_id)
+            if member.status in ['left', 'kicked']:
+                is_sub = False
+                keyboard.append([InlineKeyboardButton(title, url=url)])
+        except Exception:
+            is_sub = False
+            keyboard.append([InlineKeyboardButton(title, url=url)])
+    if not is_sub:
+        keyboard.append([InlineKeyboardButton("Tasdiqlash ✅", callback_data="check_sub_btn")])
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        msg = "Botdan foydalanish uchun quyidagi kanallarga obuna bo'lishingiz majburiy:"
+        if update.message:
+            await update.message.reply_text(msg, reply_markup=reply_markup)
+        elif update.callback_query:
+            await update.callback_query.message.reply_text(msg, reply_markup=reply_markup)
+        return False
+    return True
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Start buyrug'i. WebApp tugmasini ko'rsatadi."""
     user = update.effective_user
-    await asyncio.to_thread(db.save_user, user.id, user.first_name, user.username)
-    
-    count = await asyncio.to_thread(db.get_stats, user.id)
-    
-    # WebApp tugmasi
-    keyboard = [
-        [KeyboardButton("✍️ Esse Yozish (Web App)", web_app=WebAppInfo(url=WEBAPP_URL))]
-    ]
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    
+    db.save_user(user.id, user.first_name, user.username)
+    if not await check_sub(update, context): return
     welcome_text = (
         f"Assalomu alaykum, {user.first_name}! 👋\n\n"
-        "Men sizning shaxsiy <b>Esse Ekspert</b>ingizman (Sun'iy Intellekt).\n\n"
-        "Quyidagi usullar bilan essengizni tekshirishingiz mumkin:\n"
-        "1️⃣ Pastdagi <b>'✍️ Esse Yozish'</b> tugmasini bosib, matnni kiritish.\n"
-        "2️⃣ Yoki menga to'g'ridan-to'g'ri <b>qo'lyozma essengiz rasmini</b> tashlash.\n\n"
-        f"📊 Siz shu paytgacha {count} ta esse tekshirgansiz."
+        "Siz bu yerda essengizni AI (Bepul) yoki haqiqiy Inson Eksperti (Pullik) orqali tekshirishingiz mumkin.\n"
     )
+    await update.message.reply_text(welcome_text, reply_markup=get_main_keyboard())
+
+async def general_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await check_sub(update, context): return
+    user = update.effective_user
+    text = update.message.text if update.message.text else ""
     
-    await update.message.reply_text(welcome_text, reply_markup=reply_markup, parse_mode="HTML")
-
-
-async def web_app_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Web App dan kelgan ma'lumotni ushlab oladi"""
-    try:
-        data_str = update.effective_message.web_app_data.data
-        data = json.loads(data_str)
-        
-        criteria = data.get("criteria", "milliy")
-        topic = data.get("topic", "Mavzu kiritilmagan")
-        essay_text = data.get("essay", "")
-        
-        if len(essay_text.split()) < 10:
-            await update.message.reply_text("⚠️ Essengiz juda qisqa. Kamida 10 ta so'z bo'lishi kerak.")
+    essay_id = context.application.user_data.get(user.id, {}).get('pending_essay_id')
+    if essay_id:
+        photo_id = update.message.photo[-1].file_id if update.message.photo else ""
+        if text or photo_id:
+            db.update_human_essay_status(essay_id, "checking")
+            with db.get_db() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute("UPDATE essays_human SET essay_text=%s, photo_file_id=%s WHERE id=%s", (text, photo_id, essay_id))
+                conn.commit()
+            essay = db.get_human_essay(essay_id)
+            exp_id = essay[2]
+            await update.message.reply_text("Essengiz ekspertga yuborildi! Javobini kuting.", reply_markup=get_main_keyboard())
+            await context.bot.send_message(chat_id=exp_id, text="🔔 Sizga yangi esse keldi! 'Kabinet' dagi 'Yangi esselarni ko'rish' tugmasi orqali ko'rishingiz mumkin.")
+            context.application.user_data[user.id]['pending_essay_id'] = None
             return
 
-        msg = await update.message.reply_text("⏳ <i>Essengiz AI tomonidan tahlil qilinmoqda... Iltimos kuting (15-30 soniya)</i>", parse_mode="HTML")
-        
-        # AI ga yuborish
-        result = await ai_engine.check_essay_text(topic, essay_text, criteria)
-        
-        # Bazaga saqlash
-        await asyncio.to_thread(db.save_essay, update.effective_user.id, topic, criteria, essay_text, result)
-        
-        # Javobni yuborish (juda uzun bo'lsa bo'lib yuborish kerak, lekin odatda 4096 belgidan oshmaydi)
-        await msg.edit_text(result)
-        
-    except Exception as e:
-        logger.error(f"WebApp Data xatosi: {e}")
-        await update.message.reply_text("⚠️ Xatolik yuz berdi. Iltimos qaytadan urinib ko'ring.")
+    if text == "👤 Kabinet":
+        stats = db.get_stats(user.id)
+        user_db = db.get_user(user.id)
+        balance = user_db[3] if user_db and len(user_db) > 3 else 0
+        exp_db = db.get_expert(user.id)
+        exp_text = ""
+        if exp_db and exp_db[1] == 'active':
+            stars = "⭐" * int(round(exp_db[3])) if exp_db[4] > 0 else "Yangi"
+            exp_text = f"\n\n👨‍🏫 <b>Ekspert Profili</b>\nReyting: {stars} ({exp_db[4]} ta sharh)\nIshlangan pul: {exp_db[5]} UZS"
+        msg = f"👤 <b>Kabinet</b>\n\nIsm: {user.first_name}\nJami tekshirilgan esselar: {stats}\nBalans: {balance} UZS{exp_text}"
+        keyboard = []
+        if user.id == ADMIN_ID:
+            keyboard.append([InlineKeyboardButton("⚙️ Admin Panel", callback_data="admin_panel")])
+        if exp_db and exp_db[1] == 'active':
+            keyboard.append([InlineKeyboardButton("📋 Yangi esselarni ko'rish", callback_data="expert_tasks")])
+        await update.message.reply_text(msg, parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None)
 
+    elif text == "🎓 Ekspert bo'lish":
+        exp_db = db.get_expert(user.id)
+        if exp_db:
+            if exp_db[1] == 'active': await update.message.reply_text("Siz tasdiqlangan ekspertsiz!")
+            elif exp_db[1] == 'pending': await update.message.reply_text("Arizangiz ko'rib chiqilmoqda.")
+            else: await update.message.reply_text("Arizangiz rad etilgan.")
+            return
+        await update.message.reply_text("O'zingiz haqingizda ma'lumot (bio), tajribangiz haqida yozing:", reply_markup=ReplyKeyboardRemove())
+        return EXPERT_BIO
 
-async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Rasmlarni ushlab oladi va mezon so'raydi"""
-    photo_file = await update.message.photo[-1].get_file()
-    
-    # Rasmni yuklab olish
-    file_path = f"essay_{update.effective_user.id}.jpg"
-    await photo_file.download_to_drive(file_path)
-    
-    # State ni saqlash (qaysi rasm ustida ishlayotganini bilish uchun)
-    context.user_data['last_image_path'] = file_path
-    
-    keyboard = [
-        [InlineKeyboardButton("Milliy Sertifikat", callback_data="crit_milliy")],
-        [InlineKeyboardButton("IELTS", callback_data="crit_ielts"), InlineKeyboardButton("CEFR", callback_data="crit_cefr")]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    
-    await update.message.reply_text("Qo'lyozma qabul qilindi! ✅\nQaysi mezon bo'yicha tekshiray?", reply_markup=reply_markup)
+    elif text == "👨‍🏫 Ekspertga tekshirish (Pullik)":
+        experts = db.get_active_experts()
+        if not experts:
+            await update.message.reply_text("Faol ekspertlar yo'q.")
+            return
+        msg = "👨‍🏫 <b>Ekspertlar ro'yxati:</b>\n\n"
+        keyboard = []
+        for exp in experts:
+            uid, fname, bio, rating, count = exp
+            stars = "⭐" * int(round(rating)) if count > 0 else "Yangi"
+            msg += f"👤 {fname}\n{stars} ({count} ta sharh)\n📝 {bio}\n\n"
+            keyboard.append([InlineKeyboardButton(f"{fname} ni tanlash", callback_data=f"choose_exp_{uid}")])
+        await update.message.reply_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="HTML")
 
+async def receive_expert_bio(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    db.add_expert_application(update.effective_user.id, update.message.text)
+    await update.message.reply_text("Arizangiz adminga yuborildi!", reply_markup=get_main_keyboard())
+    admin_text = f"🆕 <b>Yangi Ekspert Arizasi</b>\nID: {update.effective_user.id}\nBio: {update.message.text}"
+    keyboard = [[InlineKeyboardButton("Qabul qilish", callback_data=f"exp_accept_{update.effective_user.id}"), InlineKeyboardButton("Rad etish", callback_data=f"exp_reject_{update.effective_user.id}")]]
+    await context.bot.send_message(chat_id=ADMIN_ID, text=admin_text, parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
+    return ConversationHandler.END
 
-async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Inline tugma bosilganda"""
+async def receive_admin_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    db.set_setting("expert_price", update.message.text)
+    await update.message.reply_text("Narx muvaffaqiyatli o'zgartirildi!", reply_markup=get_main_keyboard())
+    return ConversationHandler.END
+
+async def receive_admin_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    db.set_setting("payment_card", update.message.text)
+    await update.message.reply_text("Karta raqami muvaffaqiyatli o'zgartirildi!", reply_markup=get_main_keyboard())
+    return ConversationHandler.END
+
+async def receive_admin_channel_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data['temp_channel_id'] = update.message.text
+    await update.message.reply_text("Kanal ssilkasi va nomini kiriting (Masalan: Bizning Kanal|https://t.me/kanal):")
+    return ADMIN_CHANNEL_URL
+
+async def receive_admin_channel_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    parts = update.message.text.split('|')
+    if len(parts) == 2:
+        db.add_channel(int(context.user_data['temp_channel_id']), parts[0].strip(), parts[1].strip())
+        await update.message.reply_text("Kanal qo'shildi!", reply_markup=get_main_keyboard())
+    else:
+        await update.message.reply_text("Noto'g'ri format. Boshqatdan urinib ko'ring.", reply_markup=get_main_keyboard())
+    return ConversationHandler.END
+
+async def receive_admin_channel_del(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    db.remove_channel(int(update.message.text))
+    await update.message.reply_text("Kanal o'chirildi!", reply_markup=get_main_keyboard())
+    return ConversationHandler.END
+
+async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer()
-    
     data = query.data
-    if data.startswith("crit_"):
-        criteria = data.split("_")[1]
-        image_path = context.user_data.get('last_image_path')
+    user = update.effective_user
+    
+    if data == "check_sub_btn":
+        if await check_sub(update, context):
+            await query.message.delete()
+            await query.message.reply_text("Rahmat! Endi botdan foydalanishingiz mumkin.", reply_markup=get_main_keyboard())
+        return
+
+    if not await check_sub(update, context): return
+
+    if data.startswith("exp_accept_") and user.id == ADMIN_ID:
+        exp_id = int(data.split("_")[2])
+        db.update_expert_status(exp_id, "active")
+        await query.edit_message_text("Ekspert qabul qilindi!")
+        await context.bot.send_message(chat_id=exp_id, text="Ekspertlik arizangiz qabul qilindi!")
+    elif data.startswith("exp_reject_") and user.id == ADMIN_ID:
+        exp_id = int(data.split("_")[2])
+        db.update_expert_status(exp_id, "rejected")
+        await query.edit_message_text("Ekspert rad etildi.")
         
-        if not image_path:
-            await query.edit_message_text("⚠️ Rasm muddati tugagan yoki topilmadi. Boshqatdan yuboring.")
-            return
+    elif data.startswith("choose_exp_"):
+        exp_id = int(data.split("_")[2])
+        context.user_data['selected_expert'] = exp_id
+        price = db.get_setting("expert_price") or "20000"
+        card = db.get_setting("payment_card") or "Karta kiritilmagan"
+        text = f"Siz ekspert tanladingiz.\n\n💳 Xizmat narxi: {price} UZS\nKarta raqami: <code>{card}</code>\n\nTo'lov cheki (skrinshot)ni yuboring."
+        await query.message.reply_text(text, parse_mode="HTML", reply_markup=ReplyKeyboardRemove())
+        return RECEIPT
+
+    elif data.startswith("pay_ok_") and user.id == ADMIN_ID:
+        essay_id = int(data.split("_")[2])
+        essay = db.get_human_essay(essay_id)
+        if essay:
+            db.update_human_essay_status(essay_id, "approved")
+            await query.edit_message_caption(caption=query.message.caption + "\n\n✅ To'lov tasdiqlandi!")
+            await context.bot.send_message(chat_id=essay[1], text="✅ To'lov tasdiqlandi!\n\nEssengizni matn ko'rinishida yuboring yoki rasmini tashlang.", reply_markup=ReplyKeyboardRemove())
+            if essay[1] not in context.application.user_data: context.application.user_data[essay[1]] = {}
+            context.application.user_data[essay[1]]['pending_essay_id'] = essay_id
             
-        await query.edit_message_text("⏳ <i>Qo'lyozma o'qilmoqda va tahlil qilinmoqda... Kuting!</i>", parse_mode="HTML")
-        
-        # AI Vision tahlili
-        result = await ai_engine.check_essay_image(image_path)
-        
-        # Bazaga saqlash
-        await asyncio.to_thread(db.save_essay, update.effective_user.id, "Qo'lyozma Rasm", criteria, "[Rasm]", result)
-        
-        # Natija
-        # Uzun natijalarni telegram qabul qilmasligi mumkin, shuning uchun kesamiz agar kerak bo'lsa
-        if len(result) > 4000:
-            await query.message.reply_text(result[:4000])
-            await query.message.reply_text(result[4000:])
+    elif data.startswith("pay_no_") and user.id == ADMIN_ID:
+        essay_id = int(data.split("_")[2])
+        db.update_human_essay_status(essay_id, "rejected")
+        await query.edit_message_caption(caption=query.message.caption + "\n\n❌ To'lov rad etildi!")
+
+    elif data.startswith("rate_"):
+        parts = data.split("_")
+        db.rate_expert(int(parts[1]), int(parts[2]))
+        await query.edit_message_text(f"Rahmat! Siz ekspertga {parts[2]} ⭐ baho berdingiz.")
+
+    elif data == "admin_panel" and user.id == ADMIN_ID:
+        keyboard = [
+            [InlineKeyboardButton("💰 Narx", callback_data="admin_set_price"), InlineKeyboardButton("💳 Karta", callback_data="admin_set_card")],
+            [InlineKeyboardButton("📢 Kanal qo'shish", callback_data="admin_add_channel"), InlineKeyboardButton("🗑 Kanal o'chirish", callback_data="admin_del_channel")],
+            [InlineKeyboardButton("📊 Ekspertlar hisoboti", callback_data="admin_expert_report")]
+        ]
+        await query.message.reply_text("⚙️ <b>Admin Panel</b>", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="HTML")
+
+    elif data == "admin_set_price" and user.id == ADMIN_ID:
+        await query.message.reply_text("Yangi narxni kiriting (masalan: 30000):", reply_markup=ReplyKeyboardRemove())
+        return ADMIN_PRICE
+    elif data == "admin_set_card" and user.id == ADMIN_ID:
+        await query.message.reply_text("Yangi karta raqamini kiriting:", reply_markup=ReplyKeyboardRemove())
+        return ADMIN_CARD
+    elif data == "admin_add_channel" and user.id == ADMIN_ID:
+        await query.message.reply_text("Kanal ID sini kiriting (-100...):", reply_markup=ReplyKeyboardRemove())
+        return ADMIN_CHANNEL_ID
+    elif data == "admin_del_channel" and user.id == ADMIN_ID:
+        await query.message.reply_text("O'chiriladigan Kanal ID sini kiriting:", reply_markup=ReplyKeyboardRemove())
+        return ADMIN_CHANNEL_DEL
+    elif data == "admin_expert_report" and user.id == ADMIN_ID:
+        experts = db.get_active_experts()
+        report = "📊 <b>Ekspertlar daromadi:</b>\n\n"
+        for exp in experts:
+            # get total earned
+            with db.get_db() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute("SELECT total_earned FROM experts WHERE user_id = %s", (exp[0],))
+                    row = cursor.fetchone()
+                    earned = row[0] if row else 0
+            report += f"👤 {exp[1]}: {earned} UZS\n"
+        await query.message.reply_text(report, parse_mode="HTML")
+
+    elif data == "expert_tasks":
+        essays = db.get_expert_pending_essays(user.id)
+        if not essays:
+            await query.message.reply_text("Yangi esselar yo'q.")
         else:
-            await query.message.reply_text(result)
+            for essay in essays:
+                essay_id = essay[0]
+                msg = f"📝 <b>Esse (#{essay_id})</b>\n\nMatn: {essay[5]}"
+                keyboard = [[InlineKeyboardButton("Baholash", callback_data=f"exp_check_{essay_id}")]]
+                if essay[6]:
+                    await context.bot.send_photo(chat_id=user.id, photo=essay[6], caption=f"Esse #{essay_id}", reply_markup=InlineKeyboardMarkup(keyboard))
+                else:
+                    await context.bot.send_message(chat_id=user.id, text=msg, parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
+
+    elif data.startswith("exp_check_"):
+        context.user_data['checking_essay_id'] = int(data.split("_")[2])
+        await query.message.reply_text(f"Esse uchun xulosa yozing:", reply_markup=ReplyKeyboardRemove())
+        return EXPERT_FEEDBACK
+
+    await query.answer()
+
+async def receive_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.message.photo: return RECEIPT
+    photo_id = update.message.photo[-1].file_id
+    price = int(db.get_setting("expert_price") or "20000")
+    essay_id = db.create_human_essay(update.effective_user.id, context.user_data.get('selected_expert'), "Kutilmoqda", "Kutilmoqda", "", "", price)
+    db.update_human_essay_receipt(essay_id, photo_id)
+    await update.message.reply_text("Chek qabul qilindi. Tasdiqlash kutilmoqda.", reply_markup=get_main_keyboard())
+    keyboard = [[InlineKeyboardButton("To'lovni tasdiqlash", callback_data=f"pay_ok_{essay_id}"), InlineKeyboardButton("Rad etish", callback_data=f"pay_no_{essay_id}")]]
+    await context.bot.send_photo(chat_id=ADMIN_ID, photo=photo_id, caption=f"To'lov cheki. Summa: {price} UZS", reply_markup=InlineKeyboardMarkup(keyboard))
+    return ConversationHandler.END
+
+async def receive_expert_feedback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    essay_id = context.user_data.get('checking_essay_id')
+    essay = db.get_human_essay(essay_id)
+    db.finish_human_essay(essay_id, 0, update.message.text)
+    await update.message.reply_text("Javobingiz mijozga yuborildi!", reply_markup=get_main_keyboard())
+    msg = f"👨‍🏫 <b>Ekspert javobi:</b>\n\n{update.message.text}"
+    keyboard = [[InlineKeyboardButton(f"{i}⭐", callback_data=f"rate_{essay[2]}_{i}") for i in range(1, 6)]]
+    await context.bot.send_message(chat_id=essay[1], text=msg, parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
+    return ConversationHandler.END
 
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
     
+    conv_handler = ConversationHandler(
+        entry_points=[
+            MessageHandler(filters.Regex("^🎓 Ekspert bo'lish$"), general_handler),
+            CallbackQueryHandler(callback_handler)
+        ],
+        states={
+            EXPERT_BIO: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_expert_bio)],
+            RECEIPT: [MessageHandler(filters.PHOTO, receive_receipt)],
+            EXPERT_FEEDBACK: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_expert_feedback)],
+            ADMIN_PRICE: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_admin_price)],
+            ADMIN_CARD: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_admin_card)],
+            ADMIN_CHANNEL_ID: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_admin_channel_id)],
+            ADMIN_CHANNEL_URL: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_admin_channel_url)],
+            ADMIN_CHANNEL_DEL: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_admin_channel_del)],
+        },
+        fallbacks=[CommandHandler("start", start)],
+        allow_reentry=True
+    )
+    
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.StatusUpdate.WEB_APP_DATA, web_app_data))
-    app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
-    app.add_handler(CallbackQueryHandler(button_callback))
+    app.add_handler(conv_handler)
+    app.add_handler(MessageHandler(filters.TEXT | filters.PHOTO, general_handler))
     
     logger.info("Bot ishga tushmoqda...")
     app.run_polling(stop_signals=())
