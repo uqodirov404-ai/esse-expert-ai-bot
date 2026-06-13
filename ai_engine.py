@@ -61,18 +61,22 @@ async def check_essay_text(topic: str, essay: str, criteria: str) -> str:
     except Exception as e:
         return f"⚠️ Tahlil qilishda xatolik yuz berdi: {e}"
 
-async def check_essay_image(image_path: str) -> str:
+async def check_essay_image(image_paths: list[str]) -> str:
     """Rasm ko'rinishidagi esseni (qo'lyozmani) tahlil qilish"""
     if not client:
         return "⚠️ Gemini AI kaliti noto'g'ri sozlangan."
         
-    prompt = "Iltimos, ushbu rasmdagi qo'lyozma esseni o'qing va uni Milliy Sertifikat mezonlari asosida tekshiring. Avval o'qigan matningizni 'O'qilgan matn' deb yozing, so'ngra to'liq tahlil va bahoni bering."
+    prompt = "Iltimos, ushbu rasmlardagi qo'lyozma esseni o'qing va uni Milliy Sertifikat mezonlari asosida tekshiring. Avval o'qigan matningizni 'O'qilgan matn' deb yozing, so'ngra to'liq tahlil va bahoni bering."
     
     def _generate():
-        img = Image.open(image_path)
+        contents = []
+        for path in image_paths:
+            contents.append(Image.open(path))
+        contents.append(prompt)
+        
         response = client.models.generate_content(
             model='gemini-2.5-flash',
-            contents=[img, prompt],
+            contents=contents,
             config=types.GenerateContentConfig(
                 system_instruction=SYSTEM_INSTRUCTION,
                 temperature=0.4
