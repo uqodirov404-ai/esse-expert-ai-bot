@@ -1,4 +1,4 @@
-﻿import psycopg2
+import psycopg2
 from psycopg2 import pool
 from contextlib import contextmanager
 from datetime import datetime
@@ -91,7 +91,7 @@ def init_db():
             # channels
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS channels (
-                    channel_id BIGINT PRIMARY KEY,
+                    channel_id TEXT PRIMARY KEY,
                     title TEXT,
                     url TEXT
                 )
@@ -170,13 +170,13 @@ def get_channels():
             cursor.execute("SELECT channel_id, title, url FROM channels")
             return cursor.fetchall()
 
-def add_channel(channel_id: int, title: str, url: str):
+def add_channel(channel_id: str, title: str, url: str):
     if not db_pool: return
     with get_db() as conn:
         with conn.cursor() as cursor:
             cursor.execute('''
                 INSERT INTO channels (channel_id, title, url) VALUES (%s, %s, %s)
-                ON CONFLICT (channel_id) DO NOTHING
+                ON CONFLICT (channel_id) DO UPDATE SET title=EXCLUDED.title, url=EXCLUDED.url
             ''', (channel_id, title, url))
         conn.commit()
 
