@@ -102,6 +102,16 @@ async def general_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Bosh menyu", reply_markup=get_main_keyboard())
         return ConversationHandler.END
 
+    if text == "📝 Esseni yuborish":
+        if context.user_data.get('pending_essay_id'):
+            await update.message.reply_text("Essengiz matnini yoki bir nechta rasmlarini yuboring.\nBarcha rasmlarni yuklab bo'lgach '✅ Tayyor' tugmasini bosing:", reply_markup=get_done_keyboard())
+            context.user_data['human_photos'] = []
+            context.user_data['human_text'] = ""
+            return HUMAN_UPLOAD
+        else:
+            await update.message.reply_text("Sizda faol tekshiruv so'rovi yo'q.", reply_markup=get_main_keyboard())
+            return ConversationHandler.END
+
     if text == "👤 Kabinet":
         stats = db.get_stats(user.id)
         user_db = db.get_user(user.id)
@@ -212,7 +222,7 @@ async def process_ai_task(update, context, text, photos):
 async def receive_human_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     if text == "🔙 Bekor qilish":
-        await update.message.reply_text("Bosh menyu", reply_markup=get_main_keyboard())
+        await update.message.reply_text("Bekor qilindi. Istalgan vaqtda yuborish uchun '📝 Esseni yuborish' tugmasini bosing.", reply_markup=ReplyKeyboardMarkup([[KeyboardButton("📝 Esseni yuborish")]], resize_keyboard=True))
         return ConversationHandler.END
 
     if update.message.photo:
@@ -378,7 +388,12 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if essay:
             db.update_human_essay_status(essay_id, "approved")
             await query.edit_message_caption(caption=query.message.caption + "\n\n✅ To'lov tasdiqlandi!")
-            await context.bot.send_message(chat_id=essay[1], text="✅ To'lov tasdiqlandi!\n\nEssengizni matn ko'rinishida yuboring yoki rasmlarini tashlang. So'ngra '✅ Tayyor' tugmasini bosing.", reply_markup=get_done_keyboard())
+            await context.bot.send_message(
+                chat_id=essay[1], 
+                text="✅ To'lov tasdiqlandi!\n\nEssengizni yuborishni boshlash uchun quyidagi <b>\"📝 Esseni yuborish\"</b> tugmasini bosing.", 
+                parse_mode="HTML",
+                reply_markup=ReplyKeyboardMarkup([[KeyboardButton("📝 Esseni yuborish")]], resize_keyboard=True)
+            )
             if essay[1] not in context.application.user_data: context.application.user_data[essay[1]] = {}
             context.application.user_data[essay[1]]['pending_essay_id'] = essay_id
             context.application.user_data[essay[1]]['human_photos'] = []
@@ -386,8 +401,14 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
     elif data.startswith("pay_no_") and user.id == ADMIN_ID:
         essay_id = int(data.split("_")[2])
-        db.update_human_essay_status(essay_id, "rejected")
-        await query.edit_message_caption(caption=query.message.caption + "\n\n❌ To'lov rad etildi!")
+        essay = db.get_human_essay(essay_id)
+        if essay:
+            db.update_human_essay_status(essay_id, "rejected")
+            await query.edit_message_caption(caption=query.message.caption + "\n\n❌ To'lov rad etildi!")
+            try:
+                await context.bot.send_message(chat_id=essay[1], text="❌ Kechirasiz, siz yuborgan to'lov cheki rad etildi. Iltimos, qaytadan tekshirib ko'ring yoki admin bilan bog'laning.")
+            except:
+                pass
 
     elif data.startswith("rate_"):
         parts = data.split("_")
@@ -503,6 +524,7 @@ def main():
             MessageHandler(filters.Regex("^🎓 Ekspert bo'lish$"), general_handler),
             MessageHandler(filters.Regex("^🤖 AI Tekshiruv \\(Bepul\\)$"), general_handler),
             MessageHandler(filters.Regex("^👨‍🏫 Ekspertga tekshirish \\(Pullik\\)$"), general_handler),
+            MessageHandler(filters.Regex("^📝 Esseni yuborish$"), general_handler),
             CallbackQueryHandler(callback_handler)
         ],
         states={
