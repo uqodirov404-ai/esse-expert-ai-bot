@@ -122,10 +122,12 @@ async def general_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif text == "🎓 Ekspert bo'lish":
         exp_db = db.get_expert(user.id)
         if exp_db:
-            if exp_db[1] == 'active': await update.message.reply_text("Siz tasdiqlangan ekspertsiz!")
-            elif exp_db[1] == 'pending': await update.message.reply_text("Arizangiz ko'rib chiqilmoqda.")
-            else: await update.message.reply_text("Arizangiz rad etilgan.")
-            return
+            if exp_db[1] == 'active':
+                await update.message.reply_text("Siz tasdiqlangan ekspertsiz!")
+                return
+            elif exp_db[1] == 'pending':
+                await update.message.reply_text("Arizangiz ko'rib chiqilmoqda.")
+                return
         await update.message.reply_text("O'zingiz haqingizda ma'lumot (bio), tajribangiz haqida yozing:", reply_markup=get_cancel_keyboard())
         return EXPERT_BIO
 
