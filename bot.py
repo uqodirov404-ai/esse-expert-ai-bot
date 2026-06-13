@@ -46,7 +46,7 @@ ADMIN_ID = 162634410
 def get_main_keyboard():
     return ReplyKeyboardMarkup([
         [KeyboardButton("🤖 AI Tekshiruv (Bepul)")],
-        [KeyboardButton("👨‍🏫 Ekspertga tekshirish (Pullik)")],
+        [KeyboardButton("👨‍🏫 Ekspertga tekshirtirish (Pullik)")],
         [KeyboardButton("👤 Kabinet")],
         [KeyboardButton("🎓 Ekspert bo'lish")]
     ], resize_keyboard=True)
@@ -147,7 +147,7 @@ async def general_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['ai_text'] = ""
         return AI_UPLOAD
 
-    elif text == "👨‍🏫 Ekspertga tekshirish (Pullik)":
+    elif text == "👨‍🏫 Ekspertga tekshirtirish (Pullik)":
         experts = db.get_active_experts()
         if not experts:
             await update.message.reply_text("Faol ekspertlar yo'q.")
@@ -748,7 +748,7 @@ def main():
         entry_points=[
             MessageHandler(filters.Regex("^🎓 Ekspert bo'lish$"), general_handler),
             MessageHandler(filters.Regex("^🤖 AI Tekshiruv \\(Bepul\\)$"), general_handler),
-            MessageHandler(filters.Regex("^👨‍🏫 Ekspertga tekshirish \\(Pullik\\)$"), general_handler),
+            MessageHandler(filters.Regex("^👨‍🏫 Ekspertga tekshirtirish \\(Pullik\\)$"), general_handler),
             MessageHandler(filters.Regex("^📝 Esseni yuborish$"), general_handler),
             CallbackQueryHandler(callback_handler)
         ],
