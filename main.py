@@ -7,7 +7,8 @@ import uvicorn
 import requests
 import asyncio
 import threading
-from config import BOT_TOKEN
+from telegram import Update
+from config import BOT_TOKEN, WEBAPP_URL
 
 from ai_engine import check_essay_text, check_essay_image
 import bot
@@ -22,17 +23,52 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+RUN_WEBHOOK = "onrender.com" in WEBAPP_URL or os.environ.get("RUN_WEBHOOK", "false").lower() == "true"
+bot_app = bot.build_application()
+
 async def keep_alive():
     while True:
         try:
-            requests.get("https://esse-expert-ai-bot.onrender.com/")
-        except:
+            await asyncio.to_thread(requests.get, WEBAPP_URL)
+        except Exception:
             pass
         await asyncio.sleep(840) # 14 mins
 
 @app.on_event("startup")
 async def startup_event():
+    if RUN_WEBHOOK:
+        await bot_app.initialize()
+        await bot_app.start()
+        webhook_url = f"{WEBAPP_URL}/webhook"
+        await bot_app.bot.set_webhook(webhook_url)
+        print(f"Webhook set to: {webhook_url}")
+    else:
+        # Delete webhook first so polling can work locally
+        try:
+            requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook")
+            print("Webhook deleted for local polling.")
+        except Exception as e:
+            print(f"Error deleting webhook: {e}")
+            
     asyncio.create_task(keep_alive())
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    if RUN_WEBHOOK:
+        await bot_app.stop()
+        await bot_app.shutdown()
+
+@app.post("/webhook")
+async def telegram_webhook(request: Request):
+    if not RUN_WEBHOOK:
+        return JSONResponse(status_code=404, content={"status": "not_active"})
+    try:
+        data = await request.json()
+        update = Update.de_json(data, bot_app.bot)
+        await bot_app.process_update(update)
+    except Exception as e:
+        print(f"Error processing webhook update: {e}")
+    return JSONResponse(content={"status": "ok"})
 
 @app.get("/")
 async def read_index():
@@ -89,8 +125,10 @@ def run_telegram_bot():
     bot.main()
 
 if __name__ == "__main__":
-    bot_thread = threading.Thread(target=run_telegram_bot, daemon=True)
-    bot_thread.start()
+    if not RUN_WEBHOOK:
+        bot_thread = threading.Thread(target=run_telegram_bot, daemon=True)
+        bot_thread.start()
     
     port = int(os.environ.get("PORT", 8080))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
