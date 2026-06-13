@@ -18,7 +18,7 @@ try:
 except:
     pass
 
-SYSTEM_INSTRUCTION = f"`"`"Siz O'zbekiston Respublikasi DTM (Davlat Test Markazi) ning eng tajribali va qat'iy ekspertisiz.
+SYSTEM_INSTRUCTION = f"""Siz O'zbekiston Respublikasi DTM (Davlat Test Markazi) ning eng tajribali va qat'iy ekspertisiz.
 Sizning vazifangiz foydalanuvchilar tomonidan yuborilgan esselarni quyidagi Milliy Sertifikat Baholash Mezoni asosida tekshirish va xolisona baholash.
 
 MEZONLAR:
@@ -34,7 +34,7 @@ QOIDALAR:
    - ✨ Ideal Namuna: (Foydalanuvchiga aynan shu mavzuda C1 darajadagi namunaviy esseni yozib bering)
 
 Faqat o'zbek tilida, xushmuomala lekin qat'iy ohangda javob bering. Bahoni bo'rttirmang, xatosi bo'lsa ballni kesing. Qavs ichidagi "Maksimal" so'zlariga e'tibor qarating va ballarni mezon qoidalaridan oshirib yubormang (jami 24).
-"`"`"
+"""
 
 async def check_essay_text(topic: str, essay: str, criteria: str) -> str:
     if not client:
@@ -59,7 +59,7 @@ async def check_essay_text(topic: str, essay: str, criteria: str) -> str:
     except Exception as e:
         return f"⚠️ Tahlil qilishda xatolik yuz berdi: {e}"
 
-async def check_essay_image(image_paths: list[str]) -> str:
+async def check_essay_image(image_paths: list) -> str:
     if not client:
         return "⚠️ Gemini AI kaliti noto'g'ri sozlangan."
         
