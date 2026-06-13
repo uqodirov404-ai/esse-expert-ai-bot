@@ -657,17 +657,32 @@ async def receive_expert_feedback(update: Update, context: ContextTypes.DEFAULT_
     keyboard = [[InlineKeyboardButton(f"{i}⭐", callback_data=f"rate_{expert_id}_{i}") for i in range(1, 6)]]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    if is_voice:
-        voice_file_id = update.message.voice.file_id
-        await context.bot.send_message(chat_id=user_id, text="👨‍🏫 <b>Ekspert javobi (ovozli xabar):</b>", parse_mode="HTML")
-        await context.bot.send_voice(chat_id=user_id, voice=voice_file_id, reply_markup=reply_markup)
-    elif is_audio:
-        audio_file_id = update.message.audio.file_id
-        await context.bot.send_message(chat_id=user_id, text="👨‍🏫 <b>Ekspert javobi (audio fayl):</b>", parse_mode="HTML")
-        await context.bot.send_audio(chat_id=user_id, audio=audio_file_id, reply_markup=reply_markup)
-    else:
-        msg = f"👨‍🏫 <b>Ekspert javobi:</b>\n\n{feedback_text}"
-        await send_long_message(context.bot, user_id, msg, parse_mode="HTML", reply_markup=reply_markup)
+    try:
+        if is_voice:
+            voice_file_id = update.message.voice.file_id
+            await context.bot.send_message(chat_id=user_id, text="👨‍🏫 <b>Ekspert javobi (ovozli xabar):</b>", parse_mode="HTML")
+            try:
+                await context.bot.send_voice(chat_id=user_id, voice=voice_file_id, reply_markup=reply_markup)
+            except Exception as ev:
+                if "voice_messages_forbidden" in str(ev).lower():
+                    await context.bot.send_message(
+                        chat_id=user_id,
+                        text="⚠️ Sizda ovozli xabarlarni qabul qilish taqiqlanganligi sababli, ekspert javobi fayl ko'rinishida yuborildi."
+                    )
+                    await context.bot.send_document(chat_id=user_id, document=voice_file_id, reply_markup=reply_markup)
+                else:
+                    raise ev
+        elif is_audio:
+            audio_file_id = update.message.audio.file_id
+            await context.bot.send_message(chat_id=user_id, text="👨‍🏫 <b>Ekspert javobi (audio fayl):</b>", parse_mode="HTML")
+            await context.bot.send_audio(chat_id=user_id, audio=audio_file_id, reply_markup=reply_markup)
+        else:
+            msg = f"👨‍🏫 <b>Ekspert javobi:</b>\n\n{feedback_text}"
+            await send_long_message(context.bot, user_id, msg, parse_mode="HTML", reply_markup=reply_markup)
+    except Exception as send_err:
+        logger.error(f"Failed to send feedback to client: {send_err}")
+        await update.message.reply_text(f"❌ Xatolik yuz berdi: mijozga javobni yuborib bo'lmadi.\n({send_err})")
+        return EXPERT_FEEDBACK
 
     return ConversationHandler.END
 
