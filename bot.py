@@ -228,8 +228,15 @@ async def receive_human_upload(update: Update, context: ContextTypes.DEFAULT_TYP
     if update.message.photo:
         file_id = update.message.photo[-1].file_id
         if 'human_photos' not in context.user_data: context.user_data['human_photos'] = []
-        context.user_data['human_photos'].append(file_id)
+        context.user_data['human_photos'].append(f"photo:{file_id}")
         await update.message.reply_text(f"Rasm qabul qilindi ({len(context.user_data['human_photos'])} ta). Yana yuboring yoki '✅ Tayyor' ni bosing.", reply_markup=get_done_keyboard())
+        return HUMAN_UPLOAD
+
+    if update.message.document:
+        file_id = update.message.document.file_id
+        if 'human_photos' not in context.user_data: context.user_data['human_photos'] = []
+        context.user_data['human_photos'].append(f"doc:{file_id}")
+        await update.message.reply_text(f"Hujjat (PDF/Word) qabul qilindi ({len(context.user_data['human_photos'])} ta). Yana yuboring yoki '✅ Tayyor' ni bosing.", reply_markup=get_done_keyboard())
         return HUMAN_UPLOAD
         
     if text and text != "✅ Tayyor":
@@ -246,7 +253,7 @@ async def receive_human_upload(update: Update, context: ContextTypes.DEFAULT_TYP
         db.update_human_essay_status(essay_id, "checking")
         with db.get_db() as conn:
             with conn.cursor() as cursor:
-                # Save all photos ids concatenated by comma (simple fix for db text)
+                # Save all photos/docs ids concatenated by comma (simple fix for db text)
                 photo_str = ",".join(photos) if photos else ""
                 cursor.execute("UPDATE essays_human SET essay_text=%s, photo_file_id=%s WHERE id=%s", (essay_text, photo_str, essay_id))
             conn.commit()
@@ -585,20 +592,32 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 essay_id = essay[0]
                 msg = f"📝 <b>Esse (#{essay_id})</b>\n\nMatn: {essay[5]}"
                 keyboard = [[InlineKeyboardButton("Baholash", callback_data=f"exp_check_{essay_id}")]]
+                reply_markup = InlineKeyboardMarkup(keyboard)
                 
                 photos_str = essay[6]
                 if photos_str:
-                    photo_ids = photos_str.split(',')
-                    if len(photo_ids) == 1:
-                        await context.bot.send_photo(chat_id=user.id, photo=photo_ids[0], caption=f"Esse #{essay_id}", reply_markup=InlineKeyboardMarkup(keyboard))
-                    else:
-                        for idx, p in enumerate(photo_ids):
-                            if idx == len(photo_ids)-1:
-                                await context.bot.send_photo(chat_id=user.id, photo=p, caption=f"Esse #{essay_id} ({idx+1}/{len(photo_ids)})", reply_markup=InlineKeyboardMarkup(keyboard))
-                            else:
-                                await context.bot.send_photo(chat_id=user.id, photo=p)
+                    file_ids = photos_str.split(',')
+                    for idx, fid in enumerate(file_ids):
+                        markup = reply_markup if idx == len(file_ids) - 1 else None
+                        
+                        if fid.startswith("doc:"):
+                            actual_fid = fid.split("doc:")[1]
+                            await context.bot.send_document(
+                                chat_id=user.id,
+                                document=actual_fid,
+                                caption=f"Esse #{essay_id} Fayl ({idx+1}/{len(file_ids)})" if len(file_ids) > 1 else f"Esse #{essay_id}",
+                                reply_markup=markup
+                            )
+                        else:
+                            actual_fid = fid.split("photo:")[1] if fid.startswith("photo:") else fid
+                            await context.bot.send_photo(
+                                chat_id=user.id,
+                                photo=actual_fid,
+                                caption=f"Esse #{essay_id} Rasm ({idx+1}/{len(file_ids)})" if len(file_ids) > 1 else f"Esse #{essay_id}",
+                                reply_markup=markup
+                            )
                 else:
-                    await context.bot.send_message(chat_id=user.id, text=msg, parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
+                    await context.bot.send_message(chat_id=user.id, text=msg, parse_mode="HTML", reply_markup=reply_markup)
 
     elif data.startswith("exp_check_"):
         context.user_data['checking_essay_id'] = int(data.split("_")[2])
@@ -608,18 +627,38 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
 
 async def receive_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.text == "🔙 Bekor qilish":
+    if update.message.text and update.message.text == "🔙 Bekor qilish":
         await update.message.reply_text("Bekor qilindi", reply_markup=get_main_keyboard())
         return ConversationHandler.END
         
-    if not update.message.photo: return RECEIPT
-    photo_id = update.message.photo[-1].file_id
+    file_id = None
+    is_photo = False
+    is_doc = False
+
+    if update.message.photo:
+        file_id = f"photo:{update.message.photo[-1].file_id}"
+        is_photo = True
+    elif update.message.document:
+        file_id = f"doc:{update.message.document.file_id}"
+        is_doc = True
+    else:
+        return RECEIPT
+
     price = int(db.get_setting("expert_price") or "20000")
     essay_id = db.create_human_essay(update.effective_user.id, context.user_data.get('selected_expert'), "Kutilmoqda", "Kutilmoqda", "", "", price)
-    db.update_human_essay_receipt(essay_id, photo_id)
+    db.update_human_essay_receipt(essay_id, file_id)
     await update.message.reply_text("Chek qabul qilindi. Tasdiqlash kutilmoqda.", reply_markup=get_main_keyboard())
+    
     keyboard = [[InlineKeyboardButton("To'lovni tasdiqlash", callback_data=f"pay_ok_{essay_id}"), InlineKeyboardButton("Rad etish", callback_data=f"pay_no_{essay_id}")]]
-    await context.bot.send_photo(chat_id=ADMIN_ID, photo=photo_id, caption=f"To'lov cheki. Summa: {price} UZS", reply_markup=InlineKeyboardMarkup(keyboard))
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    if is_photo:
+        actual_fid = file_id.split("photo:")[1]
+        await context.bot.send_photo(chat_id=ADMIN_ID, photo=actual_fid, caption=f"To'lov cheki. Summa: {price} UZS", reply_markup=reply_markup)
+    elif is_doc:
+        actual_fid = file_id.split("doc:")[1]
+        await context.bot.send_document(chat_id=ADMIN_ID, document=actual_fid, caption=f"To'lov cheki (hujjat). Summa: {price} UZS", reply_markup=reply_markup)
+
     return ConversationHandler.END
 
 async def receive_expert_feedback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -636,6 +675,8 @@ async def receive_expert_feedback(update: Update, context: ContextTypes.DEFAULT_
     feedback_text = ""
     is_voice = False
     is_audio = False
+    is_photo = False
+    is_doc = False
 
     if update.message.voice:
         feedback_text = f"voice:{update.message.voice.file_id}"
@@ -643,10 +684,16 @@ async def receive_expert_feedback(update: Update, context: ContextTypes.DEFAULT_
     elif update.message.audio:
         feedback_text = f"audio:{update.message.audio.file_id}"
         is_audio = True
+    elif update.message.photo:
+        feedback_text = f"photo:{update.message.photo[-1].file_id}"
+        is_photo = True
+    elif update.message.document:
+        feedback_text = f"doc:{update.message.document.file_id}"
+        is_doc = True
     elif update.message.text:
         feedback_text = update.message.text
     else:
-        await update.message.reply_text("Iltimos, matnli xulosa, ovozli xabar yoki audio fayl yuboring:", reply_markup=get_cancel_keyboard())
+        await update.message.reply_text("Iltimos, matnli xulosa, ovozli xabar, rasm yoki hujjat yuboring:", reply_markup=get_cancel_keyboard())
         return EXPERT_FEEDBACK
 
     db.finish_human_essay(essay_id, 0, feedback_text)
@@ -676,6 +723,14 @@ async def receive_expert_feedback(update: Update, context: ContextTypes.DEFAULT_
             audio_file_id = update.message.audio.file_id
             await context.bot.send_message(chat_id=user_id, text="👨‍🏫 <b>Ekspert javobi (audio fayl):</b>", parse_mode="HTML")
             await context.bot.send_audio(chat_id=user_id, audio=audio_file_id, reply_markup=reply_markup)
+        elif is_photo:
+            photo_file_id = update.message.photo[-1].file_id
+            await context.bot.send_message(chat_id=user_id, text="👨‍🏫 <b>Ekspert javobi (rasm):</b>", parse_mode="HTML")
+            await context.bot.send_photo(chat_id=user_id, photo=photo_file_id, reply_markup=reply_markup)
+        elif is_doc:
+            doc_file_id = update.message.document.file_id
+            await context.bot.send_message(chat_id=user_id, text="👨‍🏫 <b>Ekspert javobi (hujjat):</b>", parse_mode="HTML")
+            await context.bot.send_document(chat_id=user_id, document=doc_file_id, reply_markup=reply_markup)
         else:
             msg = f"👨‍🏫 <b>Ekspert javobi:</b>\n\n{feedback_text}"
             await send_long_message(context.bot, user_id, msg, parse_mode="HTML", reply_markup=reply_markup)
@@ -699,8 +754,8 @@ def main():
         ],
         states={
             EXPERT_BIO: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_expert_bio)],
-            RECEIPT: [MessageHandler(filters.PHOTO | filters.TEXT, receive_receipt)],
-            EXPERT_FEEDBACK: [MessageHandler((filters.TEXT | filters.VOICE | filters.AUDIO) & ~filters.COMMAND, receive_expert_feedback)],
+            RECEIPT: [MessageHandler(filters.PHOTO | filters.TEXT | filters.DOCUMENT, receive_receipt)],
+            EXPERT_FEEDBACK: [MessageHandler((filters.TEXT | filters.VOICE | filters.AUDIO | filters.PHOTO | filters.DOCUMENT) & ~filters.COMMAND, receive_expert_feedback)],
             ADMIN_PRICE: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_admin_price)],
             ADMIN_CARD: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_admin_card)],
             ADMIN_CHANNEL_ID: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_admin_channel_id)],
@@ -708,7 +763,7 @@ def main():
             ADMIN_CHANNEL_DEL: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_admin_channel_del)],
             ADMIN_MSG_TO_USER: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_admin_msg)],
             AI_UPLOAD: [MessageHandler(filters.TEXT | filters.PHOTO, receive_ai_upload)],
-            HUMAN_UPLOAD: [MessageHandler(filters.TEXT | filters.PHOTO, receive_human_upload)],
+            HUMAN_UPLOAD: [MessageHandler(filters.TEXT | filters.PHOTO | filters.DOCUMENT, receive_human_upload)],
         },
         fallbacks=[CommandHandler("start", start), MessageHandler(filters.Regex("^🔙 Bekor qilish$"), general_handler)],
         allow_reentry=True
