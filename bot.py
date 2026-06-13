@@ -307,7 +307,7 @@ async def receive_admin_channel_url(update: Update, context: ContextTypes.DEFAUL
         return ConversationHandler.END
     parts = update.message.text.split('|')
     if len(parts) == 2:
-        db.add_channel(int(context.user_data['temp_channel_id']), parts[0].strip(), parts[1].strip())
+        db.add_channel(context.user_data['temp_channel_id'].strip(), parts[0].strip(), parts[1].strip())
         await update.message.reply_text("Kanal qo'shildi!", reply_markup=get_main_keyboard())
     else:
         await update.message.reply_text("Noto'g'ri format. Boshqatdan urinib ko'ring.", reply_markup=get_main_keyboard())
@@ -317,7 +317,7 @@ async def receive_admin_channel_del(update: Update, context: ContextTypes.DEFAUL
     if update.message.text == "🔙 Bekor qilish":
         await update.message.reply_text("Bekor qilindi", reply_markup=get_main_keyboard())
         return ConversationHandler.END
-    db.remove_channel(int(update.message.text))
+    db.remove_channel(update.message.text.strip())
     await update.message.reply_text("Kanal o'chirildi!", reply_markup=get_main_keyboard())
     return ConversationHandler.END
 
