@@ -1,4 +1,4 @@
-﻿import json
+import json
 import logging
 import asyncio
 import os
@@ -223,6 +223,15 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         db.update_expert_status(exp_id, "rejected")
         await query.edit_message_text("Ekspert rad etildi.")
         
+    elif data.startswith("del_exp_") and user.id == ADMIN_ID:
+        exp_id = int(data.split("_")[2])
+        db.update_expert_status(exp_id, "rejected")
+        await query.edit_message_text("Ekspert tizimdan o'chirildi!")
+        try:
+            await context.bot.send_message(chat_id=exp_id, text="Sizning ekspertlik huquqingiz admin tomonidan bekor qilindi.")
+        except Exception:
+            pass
+        
     elif data.startswith("exp_msg_") and user.id == ADMIN_ID:
         exp_id = int(data.split("_")[2])
         context.user_data['msg_target_id'] = exp_id
@@ -262,7 +271,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard = [
             [InlineKeyboardButton("💰 Narx", callback_data="admin_set_price"), InlineKeyboardButton("💳 Karta", callback_data="admin_set_card")],
             [InlineKeyboardButton("📢 Kanal qo'shish", callback_data="admin_add_channel"), InlineKeyboardButton("🗑 Kanal o'chirish", callback_data="admin_del_channel")],
-            [InlineKeyboardButton("📊 Ekspertlar hisoboti", callback_data="admin_expert_report")]
+            [InlineKeyboardButton("📊 Ekspertlar hisoboti", callback_data="admin_expert_report"), InlineKeyboardButton("🗑 Ekspert o'chirish", callback_data="admin_del_expert")]
         ]
         await query.message.reply_text("⚙️ <b>Admin Panel</b>", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="HTML")
 
@@ -289,6 +298,16 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     earned = row[0] if row else 0
             report += f"👤 {exp[1]}: {earned} UZS\n"
         await query.message.reply_text(report, parse_mode="HTML")
+
+    elif data == "admin_del_expert" and user.id == ADMIN_ID:
+        experts = db.get_active_experts()
+        if not experts:
+            await query.message.reply_text("Faol ekspertlar yo'q.")
+            return
+        keyboard = []
+        for exp in experts:
+            keyboard.append([InlineKeyboardButton(f"🗑 {exp[1]}", callback_data=f"del_exp_{exp[0]}")])
+        await query.message.reply_text("O'chirmoqchi bo'lgan ekspertni tanlang:", reply_markup=InlineKeyboardMarkup(keyboard))
 
     elif data == "expert_tasks":
         essays = db.get_expert_pending_essays(user.id)
