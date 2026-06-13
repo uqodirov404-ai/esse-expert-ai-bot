@@ -1,4 +1,4 @@
-﻿import os
+import os
 import aiofiles
 from fastapi import FastAPI, Request, File, UploadFile, Form
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -83,6 +83,9 @@ async def upload_essay(
         return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
 
 def run_telegram_bot():
+    import asyncio
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     bot.main()
 
 if __name__ == "__main__":
