@@ -1,4 +1,4 @@
-﻿import json
+import json
 import logging
 import asyncio
 import os
@@ -48,6 +48,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Assalomu alaykum, {user.first_name}! 👋\n\n"
         "Barcha xizmatlardan foydalanish uchun quyidagi tugmani bosing va Ilovaga kiring:"
     )
+    
+    # Eskidan qolgan klaviaturalarni tozalash uchun qisqa xabar yuboramiz
+    await update.message.reply_text("Ilova yuklanmoqda...", reply_markup=ReplyKeyboardRemove())
+    
     keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🌟 Ilovaga kirish", web_app=WebAppInfo(url=WEBAPP_URL))]])
     await update.message.reply_text(welcome_text, reply_markup=keyboard)
 
