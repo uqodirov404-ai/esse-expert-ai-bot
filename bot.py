@@ -258,7 +258,7 @@ async def receive_expert_bio(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return ConversationHandler.END
         
     db.add_expert_application(update.effective_user.id, update.message.text)
-    await update.message.reply_text("Arizangiz adminga yuborildi!", reply_markup=get_main_keyboard())
+    await update.message.reply_text("Arizangiz adminga yuborildi! Arizani tasdiqlash uchun @Umidjon_Qodirov ga murojaat qiling.", reply_markup=get_main_keyboard())
     admin_text = f"🆕 <b>Yangi Ekspert Arizasi</b>\nID: {update.effective_user.id}\nFoydalanuvchi: {update.effective_user.first_name}\nBio: {update.message.text}"
     keyboard = [
         [InlineKeyboardButton("Qabul qilish", callback_data=f"exp_accept_{update.effective_user.id}"), InlineKeyboardButton("Rad etish", callback_data=f"exp_reject_{update.effective_user.id}")],
