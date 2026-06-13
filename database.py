@@ -18,11 +18,49 @@ def get_db():
     if not db_pool:
         yield None
         return
-    conn = db_pool.getconn()
+    
+    conn = None
+    is_direct_conn = False
+    for _ in range(3):
+        try:
+            conn = db_pool.getconn()
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT 1")
+            break # Connection is healthy
+        except Exception:
+            if conn:
+                try:
+                    db_pool.putconn(conn, close=True)
+                except Exception:
+                    pass
+            conn = None
+            
+    if conn is None:
+        try:
+            conn = psycopg2.connect(dsn=DATABASE_URL)
+            is_direct_conn = True
+        except Exception as e:
+            logger.error(f"Database direct connection error: {e}")
+            yield None
+            return
+
     try:
         yield conn
+    except Exception as e:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        raise e
     finally:
-        db_pool.putconn(conn)
+        try:
+            if is_direct_conn:
+                conn.close()
+            else:
+                db_pool.putconn(conn)
+        except Exception:
+            pass
+
 
 def init_db():
     if not db_pool: return
