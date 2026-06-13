@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 ADMIN_ID = 162634410
 
-(RECEIPT, EXPERT_BIO, EXPERT_FEEDBACK, ADMIN_PRICE, ADMIN_CARD, ADMIN_CHANNEL_ID, ADMIN_CHANNEL_URL, ADMIN_CHANNEL_DEL) = range(8)
+(RECEIPT, EXPERT_BIO, EXPERT_FEEDBACK, ADMIN_PRICE, ADMIN_CARD, ADMIN_CHANNEL_ID, ADMIN_CHANNEL_URL, ADMIN_CHANNEL_DEL, ADMIN_MSG_TO_USER) = range(9)
 
 def get_main_keyboard():
     return ReplyKeyboardMarkup([
@@ -21,6 +21,9 @@ def get_main_keyboard():
         [KeyboardButton("👨‍🏫 Ekspertga tekshirish (Pullik)")],
         [KeyboardButton("👤 Kabinet"), KeyboardButton("🎓 Ekspert bo'lish")]
     ], resize_keyboard=True)
+
+def get_cancel_keyboard():
+    return ReplyKeyboardMarkup([[KeyboardButton("🔙 Bekor qilish")]], resize_keyboard=True)
 
 async def check_sub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
     user_id = update.effective_user.id
@@ -63,6 +66,10 @@ async def general_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     text = update.message.text if update.message.text else ""
     
+    if text == "🔙 Bekor qilish":
+        await update.message.reply_text("Bosh menyu", reply_markup=get_main_keyboard())
+        return ConversationHandler.END
+
     essay_id = context.application.user_data.get(user.id, {}).get('pending_essay_id')
     if essay_id:
         photo_id = update.message.photo[-1].file_id if update.message.photo else ""
@@ -103,7 +110,7 @@ async def general_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             elif exp_db[1] == 'pending': await update.message.reply_text("Arizangiz ko'rib chiqilmoqda.")
             else: await update.message.reply_text("Arizangiz rad etilgan.")
             return
-        await update.message.reply_text("O'zingiz haqingizda ma'lumot (bio), tajribangiz haqida yozing:", reply_markup=ReplyKeyboardRemove())
+        await update.message.reply_text("O'zingiz haqingizda ma'lumot (bio), tajribangiz haqida yozing:", reply_markup=get_cancel_keyboard())
         return EXPERT_BIO
 
     elif text == "👨‍🏫 Ekspertga tekshirish (Pullik)":
@@ -121,29 +128,48 @@ async def general_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="HTML")
 
 async def receive_expert_bio(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.text == "🔙 Bekor qilish":
+        await update.message.reply_text("Bosh menyu", reply_markup=get_main_keyboard())
+        return ConversationHandler.END
+        
     db.add_expert_application(update.effective_user.id, update.message.text)
     await update.message.reply_text("Arizangiz adminga yuborildi!", reply_markup=get_main_keyboard())
-    admin_text = f"🆕 <b>Yangi Ekspert Arizasi</b>\nID: {update.effective_user.id}\nBio: {update.message.text}"
-    keyboard = [[InlineKeyboardButton("Qabul qilish", callback_data=f"exp_accept_{update.effective_user.id}"), InlineKeyboardButton("Rad etish", callback_data=f"exp_reject_{update.effective_user.id}")]]
+    admin_text = f"🆕 <b>Yangi Ekspert Arizasi</b>\nID: {update.effective_user.id}\nFoydalanuvchi: {update.effective_user.first_name}\nBio: {update.message.text}"
+    keyboard = [
+        [InlineKeyboardButton("Qabul qilish", callback_data=f"exp_accept_{update.effective_user.id}"), InlineKeyboardButton("Rad etish", callback_data=f"exp_reject_{update.effective_user.id}")],
+        [InlineKeyboardButton("Xabar yozish", callback_data=f"exp_msg_{update.effective_user.id}")]
+    ]
     await context.bot.send_message(chat_id=ADMIN_ID, text=admin_text, parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
     return ConversationHandler.END
 
 async def receive_admin_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.text == "🔙 Bekor qilish":
+        await update.message.reply_text("Bekor qilindi", reply_markup=get_main_keyboard())
+        return ConversationHandler.END
     db.set_setting("expert_price", update.message.text)
     await update.message.reply_text("Narx muvaffaqiyatli o'zgartirildi!", reply_markup=get_main_keyboard())
     return ConversationHandler.END
 
 async def receive_admin_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.text == "🔙 Bekor qilish":
+        await update.message.reply_text("Bekor qilindi", reply_markup=get_main_keyboard())
+        return ConversationHandler.END
     db.set_setting("payment_card", update.message.text)
     await update.message.reply_text("Karta raqami muvaffaqiyatli o'zgartirildi!", reply_markup=get_main_keyboard())
     return ConversationHandler.END
 
 async def receive_admin_channel_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.text == "🔙 Bekor qilish":
+        await update.message.reply_text("Bekor qilindi", reply_markup=get_main_keyboard())
+        return ConversationHandler.END
     context.user_data['temp_channel_id'] = update.message.text
-    await update.message.reply_text("Kanal ssilkasi va nomini kiriting (Masalan: Bizning Kanal|https://t.me/kanal):")
+    await update.message.reply_text("Kanal ssilkasi va nomini kiriting (Masalan: Bizning Kanal|https://t.me/kanal):", reply_markup=get_cancel_keyboard())
     return ADMIN_CHANNEL_URL
 
 async def receive_admin_channel_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.text == "🔙 Bekor qilish":
+        await update.message.reply_text("Bekor qilindi", reply_markup=get_main_keyboard())
+        return ConversationHandler.END
     parts = update.message.text.split('|')
     if len(parts) == 2:
         db.add_channel(int(context.user_data['temp_channel_id']), parts[0].strip(), parts[1].strip())
@@ -153,8 +179,24 @@ async def receive_admin_channel_url(update: Update, context: ContextTypes.DEFAUL
     return ConversationHandler.END
 
 async def receive_admin_channel_del(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.text == "🔙 Bekor qilish":
+        await update.message.reply_text("Bekor qilindi", reply_markup=get_main_keyboard())
+        return ConversationHandler.END
     db.remove_channel(int(update.message.text))
     await update.message.reply_text("Kanal o'chirildi!", reply_markup=get_main_keyboard())
+    return ConversationHandler.END
+
+async def receive_admin_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.text == "🔙 Bekor qilish":
+        await update.message.reply_text("Bekor qilindi", reply_markup=get_main_keyboard())
+        return ConversationHandler.END
+    target_id = context.user_data.get('msg_target_id')
+    if target_id:
+        try:
+            await context.bot.send_message(chat_id=target_id, text=f"👨‍💻 <b>Admindan xabar:</b>\n\n{update.message.text}", parse_mode="HTML")
+            await update.message.reply_text("Xabar muvaffaqiyatli yetkazildi!", reply_markup=get_main_keyboard())
+        except Exception as e:
+            await update.message.reply_text(f"Xatolik: xabar yuborib bo'lmadi.\n{e}", reply_markup=get_main_keyboard())
     return ConversationHandler.END
 
 async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -175,10 +217,17 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         db.update_expert_status(exp_id, "active")
         await query.edit_message_text("Ekspert qabul qilindi!")
         await context.bot.send_message(chat_id=exp_id, text="Ekspertlik arizangiz qabul qilindi!")
+        
     elif data.startswith("exp_reject_") and user.id == ADMIN_ID:
         exp_id = int(data.split("_")[2])
         db.update_expert_status(exp_id, "rejected")
         await query.edit_message_text("Ekspert rad etildi.")
+        
+    elif data.startswith("exp_msg_") and user.id == ADMIN_ID:
+        exp_id = int(data.split("_")[2])
+        context.user_data['msg_target_id'] = exp_id
+        await query.message.reply_text(f"Foydalanuvchi ({exp_id}) ga yubormoqchi bo'lgan xabaringizni yozing:", reply_markup=get_cancel_keyboard())
+        return ADMIN_MSG_TO_USER
         
     elif data.startswith("choose_exp_"):
         exp_id = int(data.split("_")[2])
@@ -186,7 +235,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         price = db.get_setting("expert_price") or "20000"
         card = db.get_setting("payment_card") or "Karta kiritilmagan"
         text = f"Siz ekspert tanladingiz.\n\n💳 Xizmat narxi: {price} UZS\nKarta raqami: <code>{card}</code>\n\nTo'lov cheki (skrinshot)ni yuboring."
-        await query.message.reply_text(text, parse_mode="HTML", reply_markup=ReplyKeyboardRemove())
+        await query.message.reply_text(text, parse_mode="HTML", reply_markup=get_cancel_keyboard())
         return RECEIPT
 
     elif data.startswith("pay_ok_") and user.id == ADMIN_ID:
@@ -195,7 +244,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if essay:
             db.update_human_essay_status(essay_id, "approved")
             await query.edit_message_caption(caption=query.message.caption + "\n\n✅ To'lov tasdiqlandi!")
-            await context.bot.send_message(chat_id=essay[1], text="✅ To'lov tasdiqlandi!\n\nEssengizni matn ko'rinishida yuboring yoki rasmini tashlang.", reply_markup=ReplyKeyboardRemove())
+            await context.bot.send_message(chat_id=essay[1], text="✅ To'lov tasdiqlandi!\n\nEssengizni matn ko'rinishida yuboring yoki rasmini tashlang.")
             if essay[1] not in context.application.user_data: context.application.user_data[essay[1]] = {}
             context.application.user_data[essay[1]]['pending_essay_id'] = essay_id
             
@@ -218,22 +267,21 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text("⚙️ <b>Admin Panel</b>", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="HTML")
 
     elif data == "admin_set_price" and user.id == ADMIN_ID:
-        await query.message.reply_text("Yangi narxni kiriting (masalan: 30000):", reply_markup=ReplyKeyboardRemove())
+        await query.message.reply_text("Yangi narxni kiriting (masalan: 30000):", reply_markup=get_cancel_keyboard())
         return ADMIN_PRICE
     elif data == "admin_set_card" and user.id == ADMIN_ID:
-        await query.message.reply_text("Yangi karta raqamini kiriting:", reply_markup=ReplyKeyboardRemove())
+        await query.message.reply_text("Yangi karta raqamini kiriting:", reply_markup=get_cancel_keyboard())
         return ADMIN_CARD
     elif data == "admin_add_channel" and user.id == ADMIN_ID:
-        await query.message.reply_text("Kanal ID sini kiriting (-100...):", reply_markup=ReplyKeyboardRemove())
+        await query.message.reply_text("Kanal ID sini kiriting (-100...):", reply_markup=get_cancel_keyboard())
         return ADMIN_CHANNEL_ID
     elif data == "admin_del_channel" and user.id == ADMIN_ID:
-        await query.message.reply_text("O'chiriladigan Kanal ID sini kiriting:", reply_markup=ReplyKeyboardRemove())
+        await query.message.reply_text("O'chiriladigan Kanal ID sini kiriting:", reply_markup=get_cancel_keyboard())
         return ADMIN_CHANNEL_DEL
     elif data == "admin_expert_report" and user.id == ADMIN_ID:
         experts = db.get_active_experts()
         report = "📊 <b>Ekspertlar daromadi:</b>\n\n"
         for exp in experts:
-            # get total earned
             with db.get_db() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute("SELECT total_earned FROM experts WHERE user_id = %s", (exp[0],))
@@ -258,12 +306,16 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif data.startswith("exp_check_"):
         context.user_data['checking_essay_id'] = int(data.split("_")[2])
-        await query.message.reply_text(f"Esse uchun xulosa yozing:", reply_markup=ReplyKeyboardRemove())
+        await query.message.reply_text(f"Esse uchun xulosa yozing:", reply_markup=get_cancel_keyboard())
         return EXPERT_FEEDBACK
 
     await query.answer()
 
 async def receive_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.text == "🔙 Bekor qilish":
+        await update.message.reply_text("Bekor qilindi", reply_markup=get_main_keyboard())
+        return ConversationHandler.END
+        
     if not update.message.photo: return RECEIPT
     photo_id = update.message.photo[-1].file_id
     price = int(db.get_setting("expert_price") or "20000")
@@ -275,6 +327,9 @@ async def receive_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 async def receive_expert_feedback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.text == "🔙 Bekor qilish":
+        await update.message.reply_text("Bekor qilindi", reply_markup=get_main_keyboard())
+        return ConversationHandler.END
     essay_id = context.user_data.get('checking_essay_id')
     essay = db.get_human_essay(essay_id)
     db.finish_human_essay(essay_id, 0, update.message.text)
@@ -294,13 +349,14 @@ def main():
         ],
         states={
             EXPERT_BIO: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_expert_bio)],
-            RECEIPT: [MessageHandler(filters.PHOTO, receive_receipt)],
+            RECEIPT: [MessageHandler(filters.PHOTO | filters.TEXT, receive_receipt)],
             EXPERT_FEEDBACK: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_expert_feedback)],
             ADMIN_PRICE: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_admin_price)],
             ADMIN_CARD: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_admin_card)],
             ADMIN_CHANNEL_ID: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_admin_channel_id)],
             ADMIN_CHANNEL_URL: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_admin_channel_url)],
             ADMIN_CHANNEL_DEL: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_admin_channel_del)],
+            ADMIN_MSG_TO_USER: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_admin_msg)],
         },
         fallbacks=[CommandHandler("start", start)],
         allow_reentry=True
