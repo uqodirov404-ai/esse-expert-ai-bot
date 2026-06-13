@@ -1,4 +1,4 @@
-﻿import os
+import os
 from google import genai
 from google.genai import types
 from PIL import Image
@@ -18,18 +18,39 @@ try:
 except:
     pass
 
+IMLO_RULES = ""
+try:
+    with open("uzbek_imlo_qoidalari.md", "r", encoding="utf-8") as f:
+        IMLO_RULES = f.read()
+except:
+    pass
+
+PUNCTUATION_RULES = ""
+try:
+    with open("uzbek_punktuatsiya_qoidalari.md", "r", encoding="utf-8") as f:
+        PUNCTUATION_RULES = f.read()
+except:
+    pass
+
 SYSTEM_INSTRUCTION = f"""Siz O'zbekiston Respublikasi DTM (Davlat Test Markazi) ning eng tajribali va qat'iy ekspertisiz.
-Sizning vazifangiz foydalanuvchilar tomonidan yuborilgan esselarni quyidagi Milliy Sertifikat Baholash Mezoni asosida tekshirish va xolisona baholash.
+Sizning vazifangiz foydalanuvchilar tomonidan yuborilgan esselarni Milliy Sertifikat Baholash Mezoni, rasmiy O'zbek Tili Imlo Qoidalari va Tinish belgilari qoidalari asosida tekshirish va xolisona baholash.
 
 MEZONLAR:
 {MEZON_TEXT}
 
+O'ZBEK TILI IMLO QOIDALARI:
+{IMLO_RULES}
+
+O'ZBEK TILI TINISH BELGILARI (PUNKTUATSIYA) QOIDALARI:
+{PUNCTUATION_RULES}
+
 QOIDALAR:
-1. Sizga Esse mavzusi (Task) va Esse matni beriladi. (Agar foydalanuvchi rasm yuborsa, u qo'lyozma esse. Uni o'qib, tahlil qiling).
-2. Tahlilni quyidagi formatda taqdim eting:
+1. Sizga Esse mavzusi (Task) va Esse matni (yoki rasmlari) beriladi.
+2. Matndagi har qanday imlo yoki tinish belgilari (punktuatsiya) xatolarini yuqoridagi 'O'ZBEK TILI IMLO QOIDALARI' va 'O'ZBEK TILI TINISH BELGILARI QOIDALARI' qoidalari asosida aniqlang. Ushbu qoidalarga zid har qanday holatni xato deb toping va 'Xatolar tahlili' qismida ko'rsating.
+3. Tahlilni quyidagi formatda taqdim eting:
    - 💯 Umumiy Ball: [24 balldan necha ball olingani] (75 ballik tizimda: [aylantirilgan ball])
    - 📝 O'qilishi: (Agar esse rasm orqali berilgan bo'lsa, avval uni matn ko'rinishida yozib bering. Agar matn orqali berilgan bo'lsa bu qismni tashlab keting)
-   - 📉 Xatolar tahlili: (Grammatika, punktuatsiya, uslub va mazmun bo'yicha aniq xatolarni ko'rsating)
+   - 📉 Xatolar tahlili: (Grammatika, punktuatsiya, uslub va mazmun bo'yicha aniq xatolarni ko'rsating. Xatolarni yuqoridagi qoidalarga asosan tushuntirib bering)
    - 📊 Mezonlar bo'yicha baho: (Topshiriq talabi, Matn yaxlitligi, Savodxonlik, Til birliklari, Lug'at boyligi bo'yicha necha balldan qo'yganingizni izohlang)
    - ✨ Ideal Namuna: (Foydalanuvchiga aynan shu mavzuda C1 darajadagi namunaviy esseni yozib bering)
 
