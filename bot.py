@@ -535,6 +535,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data == "admin_expert_report" and user.id == ADMIN_ID:
         experts = db.get_active_experts()
         report = "📊 <b>Ekspertlar daromadi:</b>\n\n"
+        keyboard = []
         for exp in experts:
             with db.get_db() as conn:
                 with conn.cursor() as cursor:
@@ -542,7 +543,28 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     row = cursor.fetchone()
                     earned = row[0] if row else 0
             report += f"👤 {exp[1]}: {earned} UZS\n"
-        await query.message.reply_text(report, parse_mode="HTML")
+            keyboard.append([InlineKeyboardButton(f"🔄 {exp[1]} hisobini tozalash", callback_data=f"clear_exp_bal_{exp[0]}")])
+        await query.message.reply_text(report, parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None)
+
+    elif data.startswith("clear_exp_bal_") and user.id == ADMIN_ID:
+        exp_id = int(data.split("_")[3])
+        db.reset_expert_earnings(exp_id)
+        user_info = db.get_user(exp_id)
+        name = user_info[1] if user_info else f"ID: {exp_id}"
+        await query.answer(f"{name} hisobi tozalandi!")
+        
+        experts = db.get_active_experts()
+        report = f"✅ <b>{name} hisobi muvaffaqiyatli tozalandi!</b>\n\n📊 <b>Ekspertlar daromadi:</b>\n\n"
+        keyboard = []
+        for exp in experts:
+            with db.get_db() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute("SELECT total_earned FROM experts WHERE user_id = %s", (exp[0],))
+                    row = cursor.fetchone()
+                    earned = row[0] if row else 0
+            report += f"👤 {exp[1]}: {earned} UZS\n"
+            keyboard.append([InlineKeyboardButton(f"🔄 {exp[1]} hisobini tozalash", callback_data=f"clear_exp_bal_{exp[0]}")])
+        await query.edit_message_text(report, parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None)
 
     elif data == "admin_del_expert" and user.id == ADMIN_ID:
         experts = db.get_active_experts()
