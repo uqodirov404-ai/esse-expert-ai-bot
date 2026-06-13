@@ -1,4 +1,4 @@
-﻿const tg = window.Telegram.WebApp;
+const tg = window.Telegram.WebApp;
 tg.expand();
 tg.ready();
 
@@ -194,55 +194,124 @@ async function loadCabinet() {
     
     if (!currentUser) await initApp();
     
-    let html = 
-        <div class="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl p-6 text-white shadow-premium relative overflow-hidden">
-            <div class="relative z-10">
-                <h2 class="text-2xl font-bold mb-1"> + currentUser.first_name + </h2>
-                <p class="text-indigo-100 text-sm font-medium mb-6">Balans:  + currentUser.balance +  UZS</p>
-                <div class="bg-white/20 rounded-2xl p-4 backdrop-blur-md border border-white/20 text-center">
-                    <p class="text-xs text-indigo-100 uppercase tracking-wider font-semibold mb-1">Tekshirilgan esselar</p>
-                    <p class="text-3xl font-extrabold"> + currentUser.stats + </p>
+    let html = `
+        <!-- Balans Card -->
+        <div class="bg-white rounded-3xl p-5 shadow-card border border-gray-100 flex items-center justify-between mb-4">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 rounded-2xl bg-green-100 text-green-500 flex items-center justify-center text-xl">
+                    <i class="fa-solid fa-wallet"></i>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-500 font-medium">Balans</p>
+                    <p class="text-xl font-bold text-gray-900">` + currentUser.balance + ` so'm</p>
                 </div>
             </div>
-            <!-- Decors -->
-            <i class="fa-solid fa-graduation-cap absolute -top-4 -right-4 text-7xl text-white/10 rotate-12"></i>
+            <button onclick="tg.showAlert('Tez kunda!')" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-4 rounded-xl shadow-md shadow-emerald-200 transition">To'ldirish</button>
         </div>
-    ;
+
+        <!-- AI Kreditlar Card -->
+        <div class="bg-white rounded-3xl p-5 shadow-card border border-gray-100 flex items-center justify-between mb-4 relative overflow-hidden">
+            <div class="flex items-center gap-4 relative z-10">
+                <div class="w-12 h-12 rounded-2xl bg-indigo-100 text-indigo-500 flex items-center justify-center text-xl">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-500 font-medium">AI kreditlar</p>
+                    <p class="text-2xl font-bold text-gray-900 leading-tight">2 <span class="text-lg">ta</span></p>
+                    <p class="text-xs text-gray-400 mt-1">1 kredit = 5 000 so'm</p>
+                </div>
+            </div>
+            <button onclick="tg.showAlert('Tez kunda!')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-5 rounded-xl shadow-md shadow-blue-200 transition relative z-10">Sotib Olish</button>
+            <div class="absolute -bottom-10 -right-10 w-32 h-32 bg-blue-50 rounded-full blur-2xl z-0"></div>
+        </div>
+
+        <!-- Menu List Card -->
+        <div class="bg-white rounded-3xl shadow-card border border-gray-100 mb-4 overflow-hidden">
+            <button onclick="tg.showAlert('Esselaringiz shu yerda chiqadi')" class="w-full flex items-center justify-between p-5 border-b border-gray-50 hover:bg-gray-50 transition text-left">
+                <div class="flex items-center gap-4">
+                    <div class="w-10 h-10 rounded-xl bg-green-100 text-green-500 flex items-center justify-center">
+                        <i class="fa-regular fa-file-lines text-lg"></i>
+                    </div>
+                    <div>
+                        <p class="font-bold text-gray-900 text-[15px]">Essalarim</p>
+                        <p class="text-[11px] text-gray-500 mt-0.5">Yuborilgan va tekshirilgan esselar</p>
+                    </div>
+                </div>
+                <i class="fa-solid fa-chevron-right text-gray-300 text-sm"></i>
+            </button>
+            <button onclick="tg.showAlert('Tranzaksiyalar tarixi')" class="w-full flex items-center justify-between p-5 hover:bg-gray-50 transition text-left">
+                <div class="flex items-center gap-4">
+                    <div class="w-10 h-10 rounded-xl bg-lime-100 text-lime-500 flex items-center justify-center">
+                        <i class="fa-regular fa-clock text-lg"></i>
+                    </div>
+                    <div>
+                        <p class="font-bold text-gray-900 text-[15px]">Tranzaksiyalar tarixi</p>
+                        <p class="text-[11px] text-gray-500 mt-0.5">To'lovlar va kredit harakatlari</p>
+                    </div>
+                </div>
+                <i class="fa-solid fa-chevron-right text-gray-300 text-sm"></i>
+            </button>
+        </div>
+
+        <!-- Referal tizim Card -->
+        <div class="bg-white rounded-3xl p-5 shadow-card border border-gray-100 mb-6">
+            <div class="flex items-center gap-4 mb-4">
+                <div class="w-12 h-12 rounded-2xl bg-sky-100 text-sky-500 flex items-center justify-center text-xl">
+                    <i class="fa-solid fa-gift"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-gray-900 text-lg">Referal tizim</h3>
+                    <p class="text-xs text-gray-500 mt-0.5">Har 2 ta do'st taklif qiling — 1 AI kredit oling</p>
+                </div>
+            </div>
+            <div class="flex items-center justify-center py-2 relative">
+                <div class="w-1/2 text-center">
+                    <p class="text-2xl font-bold text-emerald-500">0</p>
+                    <p class="text-xs text-gray-500 mt-1">Taklif qilingan</p>
+                </div>
+                <div class="h-10 w-px bg-gray-100 absolute left-1/2"></div>
+                <div class="w-1/2 text-center">
+                    <p class="text-2xl font-bold text-emerald-500">0</p>
+                    <p class="text-xs text-gray-500 mt-1">Olingan kredit</p>
+                </div>
+            </div>
+        </div>
+    `;
     
     if (currentUser.expert) {
         const exp = currentUser.expert;
         if (exp.status === 'active') {
-            html += 
+            html += `
                 <div class="bg-white rounded-3xl p-5 shadow-card border border-gray-100 mt-5">
                     <h3 class="font-bold text-lg mb-4 flex items-center gap-2 text-gray-900"><i class="fa-solid fa-briefcase text-indigo-500"></i> Ekspert Profili</h3>
                     <div class="flex gap-4 mb-5">
                         <div class="bg-green-50 text-green-700 p-3 rounded-2xl flex-1 text-center border border-green-100">
                             <p class="text-xs font-bold uppercase">Daromad</p>
-                            <p class="font-bold"> + exp.earned +  <span class="text-xs">UZS</span></p>
+                            <p class="font-bold">` + exp.earned + ` <span class="text-xs">UZS</span></p>
                         </div>
                         <div class="bg-yellow-50 text-yellow-700 p-3 rounded-2xl flex-1 text-center border border-yellow-100">
                             <p class="text-xs font-bold uppercase">Reyting</p>
-                            <p class="font-bold"> + exp.rating + ⭐</p>
+                            <p class="font-bold">` + exp.rating + `⭐</p>
                         </div>
                     </div>
                     <button onclick="loadExpertTasks()" class="w-full bg-gray-900 text-white rounded-2xl py-3.5 font-bold shadow-lg hover:bg-black transition">Yangi esselarni ko'rish</button>
                     <div id="expertTasksArea" class="mt-4 space-y-3"></div>
                 </div>
-            ;
+            `;
         } else if (exp.status === 'pending') {
-            html += <div class="bg-yellow-50 text-yellow-700 p-4 rounded-2xl mt-5 text-center text-sm font-bold border border-yellow-200"><i class="fa-solid fa-clock mr-1"></i> Arizangiz ko'rib chiqilmoqda...</div>;
+            html += `<div class="bg-yellow-50 text-yellow-700 p-4 rounded-2xl mt-5 text-center text-sm font-bold border border-yellow-200"><i class="fa-solid fa-clock mr-1"></i> Arizangiz ko'rib chiqilmoqda...</div>`;
         } else {
-            html += <div class="bg-red-50 text-red-600 p-4 rounded-2xl mt-5 text-center text-sm font-bold border border-red-200"><i class="fa-solid fa-circle-xmark mr-1"></i> Arizangiz rad etilgan.</div>;
+            html += `<div class="bg-red-50 text-red-600 p-4 rounded-2xl mt-5 text-center text-sm font-bold border border-red-200"><i class="fa-solid fa-circle-xmark mr-1"></i> Arizangiz rad etilgan.</div>`;
         }
     } else {
-        html += 
+        html += `
             <div class="bg-white rounded-3xl p-5 shadow-card border border-gray-100 mt-5">
                 <h3 class="font-bold text-lg mb-2 text-gray-900"><i class="fa-solid fa-award text-indigo-500 mr-1"></i> Ekspert bo'lish</h3>
                 <p class="text-sm text-gray-500 mb-4 font-medium">Esselarni tekshirib pul ishlashni xohlasangiz, ekspertlikka ariza topshiring.</p>
                 <textarea id="applyBio" rows="3" placeholder="O'zingiz va tajribangiz haqida yozing..." class="w-full rounded-2xl border-gray-200 bg-gray-50 p-3.5 mb-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
                 <button onclick="applyExpert()" class="w-full bg-indigo-50 text-indigo-600 font-bold py-3 rounded-2xl transition hover:bg-indigo-100">Ariza topshirish</button>
             </div>
-        ;
+        `;
     }
     
     container.innerHTML = html;
