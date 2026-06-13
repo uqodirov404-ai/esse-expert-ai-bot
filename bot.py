@@ -754,8 +754,8 @@ def main():
         ],
         states={
             EXPERT_BIO: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_expert_bio)],
-            RECEIPT: [MessageHandler(filters.PHOTO | filters.TEXT | filters.DOCUMENT, receive_receipt)],
-            EXPERT_FEEDBACK: [MessageHandler((filters.TEXT | filters.VOICE | filters.AUDIO | filters.PHOTO | filters.DOCUMENT) & ~filters.COMMAND, receive_expert_feedback)],
+            RECEIPT: [MessageHandler(filters.PHOTO | filters.TEXT | filters.Document.ALL, receive_receipt)],
+            EXPERT_FEEDBACK: [MessageHandler((filters.TEXT | filters.VOICE | filters.AUDIO | filters.PHOTO | filters.Document.ALL) & ~filters.COMMAND, receive_expert_feedback)],
             ADMIN_PRICE: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_admin_price)],
             ADMIN_CARD: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_admin_card)],
             ADMIN_CHANNEL_ID: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_admin_channel_id)],
@@ -763,7 +763,7 @@ def main():
             ADMIN_CHANNEL_DEL: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_admin_channel_del)],
             ADMIN_MSG_TO_USER: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_admin_msg)],
             AI_UPLOAD: [MessageHandler(filters.TEXT | filters.PHOTO, receive_ai_upload)],
-            HUMAN_UPLOAD: [MessageHandler(filters.TEXT | filters.PHOTO | filters.DOCUMENT, receive_human_upload)],
+            HUMAN_UPLOAD: [MessageHandler(filters.TEXT | filters.PHOTO | filters.Document.ALL, receive_human_upload)],
         },
         fallbacks=[CommandHandler("start", start), MessageHandler(filters.Regex("^🔙 Bekor qilish$"), general_handler)],
         allow_reentry=True
