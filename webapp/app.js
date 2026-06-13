@@ -6,19 +6,24 @@ const initData = tg.initData;
 let currentUser = null;
 
 // Tab Switching
-function switchTab(tabId) {
+window.switchTab = function(tabId) {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-    document.getElementById('tab-' + tabId).classList.add('active');
+    const targetTab = document.getElementById('tab-' + tabId);
+    if(targetTab) targetTab.classList.add('active');
     
     document.querySelectorAll('.nav-btn').forEach(btn => {
-        btn.classList.remove('text-blue-600');
-        btn.classList.add('text-gray-400');
+        btn.classList.remove('active');
+        btn.classList.remove('text-emerald-500');
     });
     const activeBtn = document.querySelector(.nav-btn[data-target=" + tabId + "]);
     if(activeBtn) {
-        activeBtn.classList.remove('text-gray-400');
-        activeBtn.classList.add('text-blue-600');
+        activeBtn.classList.add('active');
+        // If green styling needed on active
+        activeBtn.style.color = '#10b981';
     }
+    document.querySelectorAll('.nav-btn:not(.active)').forEach(btn => {
+        btn.style.color = '#9ca3af';
+    });
     
     if (tabId === 'experts') loadExperts();
     if (tabId === 'cabinet') loadCabinet();
@@ -26,7 +31,7 @@ function switchTab(tabId) {
 }
 
 // Image Preview
-function previewImages(input, previewId) {
+window.previewImages = function(input, previewId) {
     const container = document.getElementById(previewId);
     container.innerHTML = '';
     if (input.files) {
@@ -55,6 +60,13 @@ async function initApp() {
             currentUser = await res.json();
             if (currentUser.is_admin) {
                 document.getElementById('navAdmin').classList.remove('hidden');
+            }
+            // Populate Home tab user info
+            const userNameEl = document.getElementById('userName');
+            const userInitialEl = document.getElementById('userInitial');
+            if (userNameEl && currentUser.first_name) {
+                userNameEl.innerText = currentUser.first_name;
+                userInitialEl.innerText = currentUser.first_name.charAt(0).toUpperCase();
             }
         }
     } catch(e) { console.error(e); }
@@ -102,24 +114,31 @@ async function loadExperts() {
         const experts = await res.json();
         container.innerHTML = '';
         if (experts.length === 0) {
-            container.innerHTML = '<p class="text-center text-gray-500">Faol ekspertlar yoq.</p>';
+            container.innerHTML = '<p class="text-center text-gray-500 font-medium">Faol ekspertlar yoq.</p>';
             return;
         }
         experts.forEach(exp => {
-            const stars = exp.reviews > 0 ? '⭐'.repeat(Math.round(exp.rating)) : 'Yangi';
+            const stars = exp.reviews > 0 ? '⭐'.repeat(Math.round(exp.rating)) : 'Yangi 🌟';
             container.innerHTML += 
-                <div class="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-700 mb-3">
-                    <h3 class="font-bold text-lg">👤  + exp.name + </h3>
-                    <p class="text-sm text-yellow-500 mb-2"> + stars +  ( + exp.reviews +  ta sharh)</p>
-                    <p class="text-sm text-gray-600 dark:text-gray-300 italic mb-4"> + exp.bio + </p>
-                    <button onclick="openOrderForm( + exp.id + )" class="w-full bg-blue-50 text-blue-600 dark:bg-gray-700 dark:text-blue-400 font-bold py-2 rounded-xl">Ekspertni tanlash</button>
+                <div class="bg-white rounded-3xl p-5 shadow-card border border-gray-100 flex flex-col">
+                    <div class="flex items-center gap-3 mb-2">
+                        <div class="w-12 h-12 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-xl font-bold">
+                             + exp.name.charAt(0) + 
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-lg text-gray-900"> + exp.name + </h3>
+                            <p class="text-xs text-orange-500 font-bold"> + stars +  ( + exp.reviews +  sharh)</p>
+                        </div>
+                    </div>
+                    <p class="text-sm text-gray-600 italic mb-4 bg-gray-50 p-3 rounded-xl border border-gray-100">" + exp.bio + "</p>
+                    <button onclick="openOrderForm( + exp.id + )" class="w-full bg-orange-50 hover:bg-orange-100 text-orange-600 font-bold py-3 rounded-2xl transition">Tanlash</button>
                 </div>
             ;
         });
     } catch(e) { container.innerHTML = '<p class="text-center text-red-500">Xatolik yuz berdi</p>'; }
 }
 
-async function openOrderForm(expId) {
+window.openOrderForm = async function(expId) {
     document.getElementById('orderExpertId').value = expId;
     document.getElementById('expertList').innerHTML = '';
     document.getElementById('orderForm').classList.remove('hidden');
@@ -132,7 +151,7 @@ async function openOrderForm(expId) {
     } catch(e){}
 }
 
-function closeOrderForm() {
+window.closeOrderForm = function() {
     document.getElementById('orderForm').classList.add('hidden');
     loadExperts();
 }
@@ -176,15 +195,17 @@ async function loadCabinet() {
     if (!currentUser) await initApp();
     
     let html = 
-        <div class="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-6 text-white shadow-lg">
-            <h2 class="text-2xl font-bold mb-1">👤  + currentUser.first_name + </h2>
-            <p class="opacity-80 text-sm mb-4">Balans:  + currentUser.balance +  UZS</p>
-            <div class="flex justify-between bg-white/20 rounded-xl p-3 backdrop-blur-md">
-                <div class="text-center w-full">
-                    <p class="text-xs opacity-80 uppercase tracking-wider">Tekshirilgan esselar</p>
-                    <p class="text-xl font-bold"> + currentUser.stats + </p>
+        <div class="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl p-6 text-white shadow-premium relative overflow-hidden">
+            <div class="relative z-10">
+                <h2 class="text-2xl font-bold mb-1"> + currentUser.first_name + </h2>
+                <p class="text-indigo-100 text-sm font-medium mb-6">Balans:  + currentUser.balance +  UZS</p>
+                <div class="bg-white/20 rounded-2xl p-4 backdrop-blur-md border border-white/20 text-center">
+                    <p class="text-xs text-indigo-100 uppercase tracking-wider font-semibold mb-1">Tekshirilgan esselar</p>
+                    <p class="text-3xl font-extrabold"> + currentUser.stats + </p>
                 </div>
             </div>
+            <!-- Decors -->
+            <i class="fa-solid fa-graduation-cap absolute -top-4 -right-4 text-7xl text-white/10 rotate-12"></i>
         </div>
     ;
     
@@ -192,26 +213,34 @@ async function loadCabinet() {
         const exp = currentUser.expert;
         if (exp.status === 'active') {
             html += 
-                <div class="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-700 mt-4">
-                    <h3 class="font-bold text-lg mb-2">👨‍🏫 Ekspert Profili</h3>
-                    <p class="text-sm"><b>Daromad:</b>  + exp.earned +  UZS</p>
-                    <p class="text-sm"><b>Reyting:</b>  + ('⭐'.repeat(Math.round(exp.rating)) || 'Yangi') +  ( + exp.reviews +  ta sharh)</p>
-                    <button onclick="loadExpertTasks()" class="w-full mt-4 bg-gray-800 text-white rounded-xl py-3 font-bold">Yangi esselarni ko'rish</button>
+                <div class="bg-white rounded-3xl p-5 shadow-card border border-gray-100 mt-5">
+                    <h3 class="font-bold text-lg mb-4 flex items-center gap-2 text-gray-900"><i class="fa-solid fa-briefcase text-indigo-500"></i> Ekspert Profili</h3>
+                    <div class="flex gap-4 mb-5">
+                        <div class="bg-green-50 text-green-700 p-3 rounded-2xl flex-1 text-center border border-green-100">
+                            <p class="text-xs font-bold uppercase">Daromad</p>
+                            <p class="font-bold"> + exp.earned +  <span class="text-xs">UZS</span></p>
+                        </div>
+                        <div class="bg-yellow-50 text-yellow-700 p-3 rounded-2xl flex-1 text-center border border-yellow-100">
+                            <p class="text-xs font-bold uppercase">Reyting</p>
+                            <p class="font-bold"> + exp.rating + ⭐</p>
+                        </div>
+                    </div>
+                    <button onclick="loadExpertTasks()" class="w-full bg-gray-900 text-white rounded-2xl py-3.5 font-bold shadow-lg hover:bg-black transition">Yangi esselarni ko'rish</button>
                     <div id="expertTasksArea" class="mt-4 space-y-3"></div>
                 </div>
             ;
         } else if (exp.status === 'pending') {
-            html += <div class="bg-yellow-50 text-yellow-600 p-4 rounded-xl mt-4 text-center text-sm font-medium border border-yellow-200">Ekspertlik arizangiz ko'rib chiqilmoqda...</div>;
+            html += <div class="bg-yellow-50 text-yellow-700 p-4 rounded-2xl mt-5 text-center text-sm font-bold border border-yellow-200"><i class="fa-solid fa-clock mr-1"></i> Arizangiz ko'rib chiqilmoqda...</div>;
         } else {
-            html += <div class="bg-red-50 text-red-600 p-4 rounded-xl mt-4 text-center text-sm font-medium border border-red-200">Arizangiz rad etilgan.</div>;
+            html += <div class="bg-red-50 text-red-600 p-4 rounded-2xl mt-5 text-center text-sm font-bold border border-red-200"><i class="fa-solid fa-circle-xmark mr-1"></i> Arizangiz rad etilgan.</div>;
         }
     } else {
         html += 
-            <div class="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-700 mt-4">
-                <h3 class="font-bold mb-2">🎓 Ekspert bo'lish</h3>
-                <p class="text-sm text-gray-500 mb-4">Esselarni tekshirib pul ishlashni xohlasangiz, ekspertlikka ariza topshiring.</p>
-                <textarea id="applyBio" rows="3" placeholder="O'zingiz va tajribangiz haqida yozing..." class="w-full rounded-xl border p-3 mb-3 text-sm dark:bg-gray-700 dark:border-gray-600"></textarea>
-                <button onclick="applyExpert()" class="w-full bg-blue-100 text-blue-600 dark:bg-gray-700 dark:text-blue-400 font-bold py-2 rounded-xl">Ariza topshirish</button>
+            <div class="bg-white rounded-3xl p-5 shadow-card border border-gray-100 mt-5">
+                <h3 class="font-bold text-lg mb-2 text-gray-900"><i class="fa-solid fa-award text-indigo-500 mr-1"></i> Ekspert bo'lish</h3>
+                <p class="text-sm text-gray-500 mb-4 font-medium">Esselarni tekshirib pul ishlashni xohlasangiz, ekspertlikka ariza topshiring.</p>
+                <textarea id="applyBio" rows="3" placeholder="O'zingiz va tajribangiz haqida yozing..." class="w-full rounded-2xl border-gray-200 bg-gray-50 p-3.5 mb-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                <button onclick="applyExpert()" class="w-full bg-indigo-50 text-indigo-600 font-bold py-3 rounded-2xl transition hover:bg-indigo-100">Ariza topshirish</button>
             </div>
         ;
     }
@@ -219,7 +248,7 @@ async function loadCabinet() {
     container.innerHTML = html;
 }
 
-async function applyExpert() {
+window.applyExpert = async function() {
     const bio = document.getElementById('applyBio').value;
     if(!bio) return;
     await fetch('/api/apply_expert', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ initData, bio }) });
@@ -228,7 +257,7 @@ async function applyExpert() {
     loadCabinet();
 }
 
-async function loadExpertTasks() {
+window.loadExpertTasks = async function() {
     const container = document.getElementById('expertTasksArea');
     container.innerHTML = '<div class="loader mx-auto"></div>';
     try {
@@ -236,31 +265,26 @@ async function loadExpertTasks() {
         const tasks = await res.json();
         container.innerHTML = '';
         if(tasks.length === 0) {
-            container.innerHTML = '<p class="text-sm text-center text-gray-500">Hozircha yangi esse yoq.</p>';
+            container.innerHTML = '<p class="text-sm text-center text-gray-500 font-medium">Hozircha yangi esse yoq.</p>';
             return;
         }
         tasks.forEach(t => {
             let photosHtml = '';
-            if (t.photo_id) {
-                // We can't directly show telegram photo_id images in WebApp without downloading them to server.
-                // For now, expert will have to use the bot to see images, or we just indicate images exist.
-                // Actually, earlier the bot sent images to expert via chat. We can tell them to check bot chat.
-                photosHtml = '<p class="text-sm text-blue-500 mb-2">📸 Rasm botingizga yuborilgan yoki yuboriladi.</p>';
-            }
+            if (t.photo_id) photosHtml = '<p class="text-sm text-indigo-500 font-medium mb-2"><i class="fa-solid fa-image"></i> Rasm botga yuborilgan.</p>';
             container.innerHTML += 
-                <div class="border rounded-xl p-3 dark:border-gray-700">
-                    <p class="text-xs text-gray-400 mb-1">Esse # + t.id + </p>
+                <div class="border-2 border-gray-100 rounded-2xl p-4 bg-gray-50">
+                    <p class="text-xs font-bold text-gray-400 mb-2 uppercase">Esse # + t.id + </p>
                      + photosHtml + 
-                    <p class="text-sm mb-3"> + (t.text || '') + </p>
-                    <textarea id="reply_ + t.id + " rows="3" placeholder="Xulosa yozing..." class="w-full rounded-lg border p-2 text-sm mb-2 dark:bg-gray-900 dark:border-gray-600"></textarea>
-                    <button onclick="sendReply( + t.id + )" class="bg-green-500 text-white px-3 py-1.5 rounded-lg text-sm w-full font-medium">Javob yuborish</button>
+                    <p class="text-sm mb-3 font-medium text-gray-800"> + (t.text || '') + </p>
+                    <textarea id="reply_ + t.id + " rows="3" placeholder="Xulosa yozing..." class="w-full rounded-xl border border-gray-200 p-3 text-sm mb-3 outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                    <button onclick="sendReply( + t.id + )" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-sm w-full font-bold transition shadow-md shadow-indigo-200">Javob yuborish</button>
                 </div>
             ;
         });
     } catch(e) {}
 }
 
-async function sendReply(id) {
+window.sendReply = async function(id) {
     const text = document.getElementById('reply_' + id).value;
     if(!text) return;
     try {
@@ -283,29 +307,29 @@ async function loadAdminPanel() {
         
         const list = document.getElementById('adminExpertsList');
         list.innerHTML = '';
-        if(experts.length === 0) list.innerHTML = '<p class="text-sm text-gray-500">Faol ekspertlar yoq.</p>';
+        if(experts.length === 0) list.innerHTML = '<p class="text-sm text-gray-500 font-medium">Faol ekspertlar yoq.</p>';
         experts.forEach(exp => {
             list.innerHTML += 
-                <div class="flex items-center justify-between bg-gray-50 dark:bg-gray-700 p-3 rounded-xl border border-gray-100 dark:border-gray-600">
+                <div class="flex items-center justify-between bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
                     <div>
-                        <p class="font-bold text-sm"> + exp.name + </p>
-                        <p class="text-xs text-gray-500">Daromad: (Botdan ko'rish kerak)</p>
+                        <p class="font-bold text-sm text-gray-900"> + exp.name + </p>
+                        <p class="text-xs text-gray-500 font-medium mt-1">ID:  + exp.id + </p>
                     </div>
-                    <button onclick="removeExpert( + exp.id + )" class="text-red-500 bg-red-50 p-2 rounded-lg text-xs font-bold">O'chirish 🗑</button>
+                    <button onclick="removeExpert( + exp.id + )" class="text-red-600 bg-red-50 hover:bg-red-100 px-3 py-2 rounded-xl text-xs font-bold transition"><i class="fa-solid fa-trash-can mr-1"></i> O'chirish</button>
                 </div>
             ;
         });
     } catch(e) {}
 }
 
-async function saveAdminSettings() {
+window.saveAdminSettings = async function() {
     const price = document.getElementById('adminPrice').value;
     const card = document.getElementById('adminCard').value;
     await fetch('/api/admin/settings', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ initData, price, card }) });
     tg.showAlert("Sozlamalar saqlandi!");
 }
 
-async function removeExpert(id) {
+window.removeExpert = async function(id) {
     if(confirm("Haqiqatan ham o'chirmoqchimisiz?")) {
         await fetch('/api/admin/remove_expert', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ initData, expert_id: id }) });
         tg.showAlert("O'chirildi!");
@@ -314,4 +338,5 @@ async function removeExpert(id) {
 }
 
 // Startup
+switchTab('home');
 initApp();
