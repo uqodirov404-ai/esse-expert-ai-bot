@@ -1,4 +1,4 @@
-const tg = window.Telegram.WebApp;
+﻿const tg = window.Telegram.WebApp;
 tg.expand();
 tg.ready();
 
@@ -18,7 +18,6 @@ window.switchTab = function(tabId) {
     const activeBtn = document.querySelector(.nav-btn[data-target=" + tabId + "]);
     if(activeBtn) {
         activeBtn.classList.add('active');
-        // If green styling needed on active
         activeBtn.style.color = '#10b981';
     }
     document.querySelectorAll('.nav-btn:not(.active)').forEach(btn => {
@@ -188,13 +187,13 @@ document.getElementById('humanForm').addEventListener('submit', async (e) => {
 });
 
 // Tab 3: Cabinet
-async function loadCabinet() {
+window.loadCabinet = async function() {
     const container = document.getElementById('cabinetContent');
     container.innerHTML = '<div class="text-center py-10"><div class="loader mx-auto"></div></div>';
     
     if (!currentUser) await initApp();
     
-    let html = `
+    let html = 
         <!-- Balans Card -->
         <div class="bg-white rounded-3xl p-5 shadow-card border border-gray-100 flex items-center justify-between mb-4">
             <div class="flex items-center gap-4">
@@ -203,7 +202,7 @@ async function loadCabinet() {
                 </div>
                 <div>
                     <p class="text-xs text-gray-500 font-medium">Balans</p>
-                    <p class="text-xl font-bold text-gray-900">` + currentUser.balance + ` so'm</p>
+                    <p class="text-xl font-bold text-gray-900"> + currentUser.balance +  so'm</p>
                 </div>
             </div>
             <button onclick="tg.showAlert('Tez kunda!')" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-4 rounded-xl shadow-md shadow-emerald-200 transition">To'ldirish</button>
@@ -276,42 +275,42 @@ async function loadCabinet() {
                 </div>
             </div>
         </div>
-    `;
+    ;
     
     if (currentUser.expert) {
         const exp = currentUser.expert;
         if (exp.status === 'active') {
-            html += `
+            html += 
                 <div class="bg-white rounded-3xl p-5 shadow-card border border-gray-100 mt-5">
                     <h3 class="font-bold text-lg mb-4 flex items-center gap-2 text-gray-900"><i class="fa-solid fa-briefcase text-indigo-500"></i> Ekspert Profili</h3>
                     <div class="flex gap-4 mb-5">
                         <div class="bg-green-50 text-green-700 p-3 rounded-2xl flex-1 text-center border border-green-100">
                             <p class="text-xs font-bold uppercase">Daromad</p>
-                            <p class="font-bold">` + exp.earned + ` <span class="text-xs">UZS</span></p>
+                            <p class="font-bold"> + exp.earned +  <span class="text-xs">UZS</span></p>
                         </div>
                         <div class="bg-yellow-50 text-yellow-700 p-3 rounded-2xl flex-1 text-center border border-yellow-100">
                             <p class="text-xs font-bold uppercase">Reyting</p>
-                            <p class="font-bold">` + exp.rating + `⭐</p>
+                            <p class="font-bold"> + exp.rating + ⭐</p>
                         </div>
                     </div>
                     <button onclick="loadExpertTasks()" class="w-full bg-gray-900 text-white rounded-2xl py-3.5 font-bold shadow-lg hover:bg-black transition">Yangi esselarni ko'rish</button>
                     <div id="expertTasksArea" class="mt-4 space-y-3"></div>
                 </div>
-            `;
+            ;
         } else if (exp.status === 'pending') {
-            html += `<div class="bg-yellow-50 text-yellow-700 p-4 rounded-2xl mt-5 text-center text-sm font-bold border border-yellow-200"><i class="fa-solid fa-clock mr-1"></i> Arizangiz ko'rib chiqilmoqda...</div>`;
+            html += <div class="bg-yellow-50 text-yellow-700 p-4 rounded-2xl mt-5 text-center text-sm font-bold border border-yellow-200"><i class="fa-solid fa-clock mr-1"></i> Arizangiz ko'rib chiqilmoqda...</div>;
         } else {
-            html += `<div class="bg-red-50 text-red-600 p-4 rounded-2xl mt-5 text-center text-sm font-bold border border-red-200"><i class="fa-solid fa-circle-xmark mr-1"></i> Arizangiz rad etilgan.</div>`;
+            html += <div class="bg-red-50 text-red-600 p-4 rounded-2xl mt-5 text-center text-sm font-bold border border-red-200"><i class="fa-solid fa-circle-xmark mr-1"></i> Arizangiz rad etilgan.</div>;
         }
     } else {
-        html += `
+        html += 
             <div class="bg-white rounded-3xl p-5 shadow-card border border-gray-100 mt-5">
                 <h3 class="font-bold text-lg mb-2 text-gray-900"><i class="fa-solid fa-award text-indigo-500 mr-1"></i> Ekspert bo'lish</h3>
                 <p class="text-sm text-gray-500 mb-4 font-medium">Esselarni tekshirib pul ishlashni xohlasangiz, ekspertlikka ariza topshiring.</p>
                 <textarea id="applyBio" rows="3" placeholder="O'zingiz va tajribangiz haqida yozing..." class="w-full rounded-2xl border-gray-200 bg-gray-50 p-3.5 mb-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
                 <button onclick="applyExpert()" class="w-full bg-indigo-50 text-indigo-600 font-bold py-3 rounded-2xl transition hover:bg-indigo-100">Ariza topshirish</button>
             </div>
-        `;
+        ;
     }
     
     container.innerHTML = html;
