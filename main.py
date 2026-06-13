@@ -22,6 +22,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+async def keep_alive():
+    while True:
+        try:
+            requests.get("https://esse-expert-ai-bot.onrender.com/")
+        except:
+            pass
+        await asyncio.sleep(840) # 14 mins
+
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(keep_alive())
+
 @app.get("/")
 async def read_index():
     with open("webapp/index.html", "r", encoding="utf-8") as f:
