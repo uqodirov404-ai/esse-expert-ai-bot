@@ -115,7 +115,7 @@ async def general_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text == "👤 Kabinet":
         stats = db.get_stats(user.id)
         user_db = db.get_user(user.id)
-        balance = user_db[3] if user_db and len(user_db) > 3 else 0
+        balance = user_db[4] if user_db and len(user_db) > 4 else 0
         exp_db = db.get_expert(user.id)
         exp_text = ""
         if exp_db and exp_db[1] == 'active':
