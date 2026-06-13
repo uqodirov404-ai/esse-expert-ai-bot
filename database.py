@@ -326,3 +326,10 @@ def get_stats(user_id: int):
             cursor.execute("SELECT COUNT(*) FROM essays_human WHERE user_id = %s", (user_id,))
             human_count = cursor.fetchone()[0]
             return ai_count + human_count
+
+def reset_expert_earnings(expert_id: int):
+    if not db_pool: return
+    with get_db() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("UPDATE experts SET total_earned = 0 WHERE user_id = %s", (expert_id,))
+        conn.commit()
