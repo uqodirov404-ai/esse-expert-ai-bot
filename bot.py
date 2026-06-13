@@ -741,7 +741,7 @@ async def receive_expert_feedback(update: Update, context: ContextTypes.DEFAULT_
 
     return ConversationHandler.END
 
-def main():
+def build_application():
     app = Application.builder().token(BOT_TOKEN).build()
     
     conv_handler = ConversationHandler(
@@ -773,7 +773,11 @@ def main():
     app.add_handler(conv_handler)
     app.add_handler(MessageHandler(filters.TEXT | filters.PHOTO, general_handler))
     
-    logger.info("Bot ishga tushmoqda...")
+    return app
+
+def main():
+    app = build_application()
+    logger.info("Bot ishga tushmoqda (Polling)...")
     app.run_polling(stop_signals=())
 
 if __name__ == "__main__":
