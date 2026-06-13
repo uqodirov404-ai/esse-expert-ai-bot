@@ -3,283 +3,170 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Esse Expert AI</title>
+    <title>Esse Eksperti</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --bg-color: #0f172a;
-            --glass-bg: rgba(30, 41, 59, 0.7);
-            --glass-border: rgba(255, 255, 255, 0.1);
-            --primary: #8b5cf6;
-            --primary-glow: rgba(139, 92, 246, 0.5);
-            --text-main: #f8fafc;
-            --text-muted: #cbd5e1;
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Inter', sans-serif;
-        }
-
-        body {
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 20px;
-            background-image: 
-                radial-gradient(circle at 15% 50%, rgba(139, 92, 246, 0.15), transparent 25%),
-                radial-gradient(circle at 85% 30%, rgba(56, 189, 248, 0.15), transparent 25%);
-        }
-
-        .container {
-            width: 100%;
-            max-width: 500px;
-            background: var(--glass-bg);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid var(--glass-border);
-            border-radius: 24px;
-            padding: 24px;
-            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
-        }
-
-        h1 {
-            font-size: 24px;
-            font-weight: 700;
-            margin-bottom: 8px;
-            text-align: center;
-            background: linear-gradient(135deg, #a78bfa, #38bdf8);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        p.subtitle {
-            text-align: center;
-            color: var(--text-muted);
-            font-size: 14px;
-            margin-bottom: 24px;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        label {
-            display: block;
-            font-size: 14px;
-            font-weight: 500;
-            margin-bottom: 8px;
-            color: var(--text-muted);
-        }
-
-        input[type="text"], select, textarea, input[type="file"] {
-            width: 100%;
-            background: rgba(15, 23, 42, 0.6);
-            border: 1px solid var(--glass-border);
-            color: var(--text-main);
-            border-radius: 12px;
-            padding: 14px;
-            font-size: 15px;
-            transition: all 0.3s ease;
-            outline: none;
-        }
-
-        input[type="file"] {
-            padding: 10px;
-        }
-
-        input[type="text"]:focus, select:focus, textarea:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 2px var(--primary-glow);
-        }
-
-        textarea {
-            resize: vertical;
-            min-height: 150px;
-            line-height: 1.5;
-        }
-
-        select option {
-            background-color: var(--bg-color);
-            color: var(--text-main);
-        }
-
-        .word-count {
-            text-align: right;
-            font-size: 12px;
-            color: var(--text-muted);
-            margin-top: 6px;
-        }
-
-        .btn-submit {
-            width: 100%;
-            background: linear-gradient(135deg, #8b5cf6, #6366f1);
-            color: white;
-            border: none;
-            padding: 16px;
-            border-radius: 14px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px var(--primary-glow);
-            margin-top: 10px;
-        }
-
-        .btn-submit:active {
-            transform: scale(0.98);
-        }
-
-        .btn-submit:disabled {
-            background: #475569;
-            box-shadow: none;
-            cursor: not-allowed;
-            color: #94a3b8;
-        }
+        body { font-family: 'Inter', sans-serif; background-color: var(--tg-theme-bg-color, #f3f4f6); color: var(--tg-theme-text-color, #111827); }
+        .glass { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.2); }
+        .dark .glass { background: rgba(31, 41, 55, 0.7); border: 1px solid rgba(255,255,255,0.05); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         
-        .divider {
-            text-align: center;
-            margin: 15px 0;
-            color: var(--text-muted);
-            font-size: 14px;
-            position: relative;
-        }
-        .divider::before, .divider::after {
-            content: "";
-            position: absolute;
-            top: 50%;
-            width: 40%;
-            height: 1px;
-            background: var(--glass-border);
-        }
-        .divider::before { left: 0; }
-        .divider::after { right: 0; }
-
-        body.tg-theme {
-            background-color: var(--tg-theme-bg-color, var(--bg-color));
-            color: var(--tg-theme-text-color, var(--text-main));
-        }
+        /* Modern Loader */
+        .loader { border: 3px solid #f3f3f3; border-top: 3px solid #3b82f6; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .image-preview { width: 60px; height: 60px; object-fit: cover; border-radius: 8px; }
+        .file-upload-label { cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 2px dashed #3b82f6; border-radius: 12px; padding: 20px; transition: all 0.2s; }
+        .file-upload-label:hover { background-color: rgba(59, 130, 246, 0.05); }
     </style>
 </head>
-<body>
+<body class="pb-24 transition-colors duration-200">
 
-    <div class="container">
-        <h1>Esse Expert AI</h1>
-        <p class="subtitle">Essengizni sun'iy intellekt orqali tekshiring</p>
+    <!-- Header -->
+    <header class="glass sticky top-0 z-50 px-4 py-3 shadow-sm">
+        <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-purple-600">Esse Eksperti</h1>
+    </header>
 
-        <div class="form-group">
-            <label for="criteria">Baholash mezoni</label>
-            <select id="criteria">
-                <option value="milliy">Milliy Sertifikat</option>
-                <option value="ielts">IELTS Academic</option>
-                <option value="cefr">CEFR Standarti</option>
-            </select>
-        </div>
-
-        <div class="form-group">
-            <label for="topic">Esse mavzusi</label>
-            <input type="text" id="topic" placeholder="Mavzuni kiriting (yoki ixtiyoriy)...">
-        </div>
-
-        <div class="form-group">
-            <label for="essay">Esse matni</label>
-            <textarea id="essay" placeholder="Shu yerga essengizni yozing yoki nusxalab tashlang..."></textarea>
-            <div class="word-count" id="wordCount">0 ta so'z</div>
-        </div>
+    <!-- Main Content Area -->
+    <main class="p-4">
         
-        <div class="divider">YOKI</div>
+        <!-- Tab 1: AI Tekshiruv -->
+        <section id="tab-ai" class="tab-content active">
+            <div class="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
+                <h2 class="text-lg font-bold mb-4">🤖 AI Tekshiruv (Bepul)</h2>
+                <form id="aiForm" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Mezonni tanlang</label>
+                        <select id="aiCriteria" class="w-full rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 p-3 outline-none focus:ring-2 focus:ring-blue-500 transition-shadow">
+                            <option value="Milliy Sertifikat (B2, C1)">Milliy Sertifikat (B2, C1)</option>
+                            <option value="CEFR">CEFR</option>
+                            <option value="IELTS">IELTS</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Mavzu (ixtiyoriy)</label>
+                        <input type="text" id="aiTopic" placeholder="Esse mavzusi..." class="w-full rounded-xl border border-gray-300 dark:border-gray-600 dark:bg-gray-700 p-3 outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Esse matni</label>
+                        <textarea id="aiText" rows="4" placeholder="Matnni bu yerga yozing..." class="w-full rounded-xl border border-gray-300 dark:border-gray-600 dark:bg-gray-700 p-3 outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                    </div>
+                    <div>
+                        <span class="block text-sm font-medium mb-1">Yoki rasmlarni yuklang</span>
+                        <label class="file-upload-label">
+                            <span class="text-2xl mb-2">📸</span>
+                            <span class="text-sm text-blue-500 font-medium">Rasmlarni tanlash</span>
+                            <input type="file" id="aiFiles" multiple accept="image/*" class="hidden" onchange="previewImages(this, 'aiPreview')">
+                        </label>
+                        <div id="aiPreview" class="flex flex-wrap gap-2 mt-3"></div>
+                    </div>
+                    <button type="submit" class="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-blue-500/30 transform transition hover:scale-[1.02] active:scale-95 flex justify-center items-center">
+                        <span id="aiBtnText">Tekshirishga yuborish</span>
+                        <div id="aiLoader" class="loader ml-2 hidden"></div>
+                    </button>
+                </form>
+            </div>
+        </section>
+
+        <!-- Tab 2: Ekspertlar -->
+        <section id="tab-experts" class="tab-content">
+            <div id="expertList" class="space-y-4">
+                <div class="text-center py-10"><div class="loader mx-auto"></div></div>
+            </div>
+            
+            <!-- Order Form (Hidden initially) -->
+            <div id="orderForm" class="hidden bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-700 mt-4">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-bold">Buyurtma berish</h2>
+                    <button onclick="closeOrderForm()" class="text-red-500 font-bold p-2 bg-red-50 rounded-lg">✕</button>
+                </div>
+                <div class="bg-blue-50 dark:bg-gray-700 p-4 rounded-xl mb-4">
+                    <p class="text-sm">Xizmat narxi: <b id="orderPrice" class="text-blue-600">0</b> UZS</p>
+                    <p class="text-sm mt-2">Karta: <b id="orderCard" class="text-blue-600 tracking-wider">...</b></p>
+                    <p class="text-xs text-gray-500 mt-1">Shu kartaga to'lov qilib, chekni pastga yuklang.</p>
+                </div>
+                <form id="humanForm" class="space-y-4">
+                    <input type="hidden" id="orderExpertId">
+                    <div>
+                        <label class="block text-sm font-medium mb-1 text-red-500">To'lov cheki (skrinshot) *</label>
+                        <input type="file" id="orderReceipt" accept="image/*" required class="w-full text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Esse matni</label>
+                        <textarea id="orderText" rows="3" placeholder="Matnni bu yerga yozing..." class="w-full rounded-xl border border-gray-300 dark:border-gray-600 dark:bg-gray-700 p-3 outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                    </div>
+                    <div>
+                        <span class="block text-sm font-medium mb-1">Yoki rasmlarni yuklang</span>
+                        <label class="file-upload-label">
+                            <span class="text-xl mb-1">📸</span>
+                            <span class="text-sm text-blue-500 font-medium">Rasmlarni tanlash</span>
+                            <input type="file" id="orderFiles" multiple accept="image/*" class="hidden" onchange="previewImages(this, 'orderPreview')">
+                        </label>
+                        <div id="orderPreview" class="flex flex-wrap gap-2 mt-3"></div>
+                    </div>
+                    <button type="submit" class="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold py-3 px-4 rounded-xl shadow-lg transform transition hover:scale-[1.02] active:scale-95 flex justify-center items-center">
+                        <span id="humanBtnText">Yuborish</span>
+                        <div id="humanLoader" class="loader ml-2 hidden border-white"></div>
+                    </button>
+                </form>
+            </div>
+        </section>
+
+        <!-- Tab 3: Kabinet -->
+        <section id="tab-cabinet" class="tab-content">
+            <div id="cabinetContent" class="space-y-4">
+                <div class="text-center py-10"><div class="loader mx-auto"></div></div>
+            </div>
+        </section>
         
-        <div class="form-group">
-            <label for="image">Qo'lyozma rasm yuklash</label>
-            <input type="file" id="image" accept="image/*">
-        </div>
-
-        <button class="btn-submit" id="submitBtn">Esseni baholatish</button>
-    </div>
-
-    <script>
-        const tg = window.Telegram.WebApp;
-        tg.expand();
-
-        if (tg.colorScheme) {
-            document.body.classList.add('tg-theme');
-        }
-
-        const essayInput = document.getElementById('essay');
-        const topicInput = document.getElementById('topic');
-        const criteriaInput = document.getElementById('criteria');
-        const imageInput = document.getElementById('image');
-        const submitBtn = document.getElementById('submitBtn');
-        const wordCountDisplay = document.getElementById('wordCount');
-
-        function checkInputs() {
-            const text = essayInput.value.trim();
-            const words = text ? text.split(/\s+/).length : 0;
-            wordCountDisplay.textContent = words + " ta so'z";
-
-            const hasText = words >= 10;
-            const hasImage = imageInput.files.length > 0;
-
-            if (hasText || hasImage) {
-                submitBtn.disabled = false;
-            } else {
-                submitBtn.disabled = true;
-            }
-        }
-
-        essayInput.addEventListener('input', checkInputs);
-        imageInput.addEventListener('change', checkInputs);
-        submitBtn.disabled = true;
-
-        submitBtn.addEventListener('click', async () => {
-            submitBtn.disabled = true;
-            submitBtn.textContent = '⏳ Jo\'natilmoqda...';
-            
-            // Foydalanuvchi ID sini Telegram dan olish
-            let userId = 0;
-            if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
-                userId = tg.initDataUnsafe.user.id;
-            } else {
-                // Test uchun fallback
-                userId = 162634410; 
-            }
-
-            const formData = new FormData();
-            formData.append('user_id', userId);
-            formData.append('criteria', criteriaInput.value);
-            formData.append('topic', topicInput.value.trim());
-            formData.append('text', essayInput.value.trim());
-            
-            if (imageInput.files.length > 0) {
-                formData.append('file', imageInput.files[0]);
-            }
-
-            try {
-                const response = await fetch('/upload', {
-                    method: 'POST',
-                    body: formData
-                });
+        <!-- Tab 4: Admin Panel -->
+        <section id="tab-admin" class="tab-content">
+            <div class="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-700 space-y-6">
+                <h2 class="text-lg font-bold text-red-500 flex items-center">⚙️ Admin Panel</h2>
                 
-                if (response.ok) {
-                    tg.showAlert("Essengiz muvaffaqiyatli yuborildi! Natijani bot chatida kutib oling.");
-                    tg.close();
-                } else {
-                    tg.showAlert("Xatolik yuz berdi. Iltimos qaytadan urinib ko'ring.");
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = 'Esseni baholatish';
-                }
-            } catch (error) {
-                tg.showAlert("Internet ulanishida xatolik!");
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Esseni baholatish';
-            }
-        });
-    </script>
+                <div class="space-y-3">
+                    <h3 class="font-semibold text-sm text-gray-500 uppercase tracking-wider">To'lov Sozlamalari</h3>
+                    <input type="text" id="adminPrice" placeholder="Narx (UZS)" class="w-full rounded-xl border p-3 dark:bg-gray-700 dark:border-gray-600">
+                    <input type="text" id="adminCard" placeholder="Karta raqami" class="w-full rounded-xl border p-3 dark:bg-gray-700 dark:border-gray-600">
+                    <button onclick="saveAdminSettings()" class="bg-gray-800 text-white rounded-xl py-2 px-4 w-full">Saqlash</button>
+                </div>
+                
+                <hr class="border-gray-200 dark:border-gray-700">
+                
+                <div class="space-y-3">
+                    <h3 class="font-semibold text-sm text-gray-500 uppercase tracking-wider">Ekspertlar Boshqaruvi</h3>
+                    <div id="adminExpertsList" class="space-y-2"></div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Bottom Navigation -->
+    <nav class="glass fixed bottom-0 w-full flex justify-around items-center p-3 border-t border-gray-200 dark:border-gray-800 pb-safe">
+        <button onclick="switchTab('ai')" class="nav-btn flex flex-col items-center text-blue-600" data-target="ai">
+            <span class="text-2xl mb-1">🤖</span>
+            <span class="text-[10px] font-semibold">AI</span>
+        </button>
+        <button onclick="switchTab('experts')" class="nav-btn flex flex-col items-center text-gray-400" data-target="experts">
+            <span class="text-2xl mb-1">👨‍🏫</span>
+            <span class="text-[10px] font-semibold">Ekspert</span>
+        </button>
+        <button onclick="switchTab('cabinet')" class="nav-btn flex flex-col items-center text-gray-400" data-target="cabinet">
+            <span class="text-2xl mb-1">👤</span>
+            <span class="text-[10px] font-semibold">Kabinet</span>
+        </button>
+        <button id="navAdmin" onclick="switchTab('admin')" class="hidden nav-btn flex flex-col items-center text-gray-400" data-target="admin">
+            <span class="text-2xl mb-1">⚙️</span>
+            <span class="text-[10px] font-semibold">Admin</span>
+        </button>
+    </nav>
+
+    <script src="/static/app.js"></script>
 </body>
 </html>
+
