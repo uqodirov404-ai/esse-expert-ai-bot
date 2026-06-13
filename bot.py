@@ -176,7 +176,7 @@ async def receive_ai_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Hech narsa yubormadingiz! Yoki rasm, yoki matn yuboring.", reply_markup=get_done_keyboard())
             return AI_UPLOAD
             
-        await update.message.reply_text("Essengiz AI ga yuborildi. Kuting...", reply_markup=get_main_keyboard())
+        await update.message.reply_text("⏳ Essengiz qabul qilindi. Sun'iy intellekt uni tekshirmoqda.\n\nBu jarayon 1-2 daqiqa vaqt olishi mumkin. Natija tayyor bo'lishi bilan sizga yuboramiz.", reply_markup=get_main_keyboard())
         
         # Process AI logic in background
         asyncio.create_task(process_ai_task(update, context, essay_text, photos))
