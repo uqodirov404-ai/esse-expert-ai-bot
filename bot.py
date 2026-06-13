@@ -1,4 +1,4 @@
-﻿import json
+import json
 import logging
 import asyncio
 import os
@@ -154,7 +154,6 @@ async def receive_ai_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def process_ai_task(update, context, text, photos):
     try:
         user_id = update.effective_user.id
-        essay_id = db.create_essay(user_id, text, photos[0] if photos else "")
         
         if photos:
             paths = []
@@ -170,11 +169,11 @@ async def process_ai_task(update, context, text, photos):
                 try: os.remove(p)
                 except: pass
                 
-            db.update_essay_result(essay_id, 0, res)
+            db.save_essay(user_id, "", "", text, res)
             await context.bot.send_message(chat_id=user_id, text=f"🤖 <b>AI Xulosasi:</b>\n\n{res}", parse_mode="HTML")
         else:
-            res = await ai_engine.check_essay_text(text, "")
-            db.update_essay_result(essay_id, 0, res)
+            res = await ai_engine.check_essay_text("", text, "")
+            db.save_essay(user_id, "", "", text, res)
             await context.bot.send_message(chat_id=user_id, text=f"🤖 <b>AI Xulosasi:</b>\n\n{res}", parse_mode="HTML")
     except Exception as e:
         await context.bot.send_message(chat_id=user_id, text=f"Xatolik yuz berdi: {e}")
