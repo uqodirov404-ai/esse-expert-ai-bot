@@ -12,14 +12,43 @@ import ai_engine
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+async def send_long_message(bot, chat_id, text, parse_mode="HTML", reply_markup=None):
+    if len(text) <= 4000:
+        try:
+            await bot.send_message(chat_id=chat_id, text=text, parse_mode=parse_mode, reply_markup=reply_markup)
+        except Exception:
+            await bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup)
+        return
+
+    chunks = []
+    temp_text = text
+    while len(temp_text) > 4000:
+        split_idx = temp_text.rfind('\n', 0, 4000)
+        if split_idx == -1 or split_idx < 3000:
+            split_idx = 4000
+        chunks.append(temp_text[:split_idx])
+        temp_text = temp_text[split_idx:]
+    if temp_text:
+        chunks.append(temp_text)
+
+    for i, chunk in enumerate(chunks):
+        markup = reply_markup if i == len(chunks) - 1 else None
+        try:
+            await bot.send_message(chat_id=chat_id, text=chunk, parse_mode=parse_mode, reply_markup=markup)
+        except Exception:
+            clean_chunk = chunk.replace("<b>", "").replace("</b>", "").replace("<i>", "").replace("</i>", "")
+            await bot.send_message(chat_id=chat_id, text=clean_chunk, reply_markup=markup)
+
 ADMIN_ID = 162634410
 
 (RECEIPT, EXPERT_BIO, EXPERT_FEEDBACK, ADMIN_PRICE, ADMIN_CARD, ADMIN_CHANNEL_ID, ADMIN_CHANNEL_URL, ADMIN_CHANNEL_DEL, ADMIN_MSG_TO_USER, AI_UPLOAD, HUMAN_UPLOAD) = range(11)
 
 def get_main_keyboard():
     return ReplyKeyboardMarkup([
-        [KeyboardButton("🤖 AI Tekshiruv (Bepul)"), KeyboardButton("👨‍🏫 Ekspertga tekshirish (Pullik)")],
-        [KeyboardButton("👤 Kabinet"), KeyboardButton("🎓 Ekspert bo'lish")]
+        [KeyboardButton("🤖 AI Tekshiruv (Bepul)")],
+        [KeyboardButton("👨‍🏫 Ekspertga tekshirish (Pullik)")],
+        [KeyboardButton("👤 Kabinet")],
+        [KeyboardButton("🎓 Ekspert bo'lish")]
     ], resize_keyboard=True)
 
 def get_cancel_keyboard():
@@ -170,11 +199,11 @@ async def process_ai_task(update, context, text, photos):
                 except: pass
                 
             db.save_essay(user_id, "", "", text, res)
-            await context.bot.send_message(chat_id=user_id, text=f"🤖 <b>AI Xulosasi:</b>\n\n{res}", parse_mode="HTML")
+            await send_long_message(context.bot, user_id, f"🤖 <b>AI Xulosasi:</b>\n\n{res}", parse_mode="HTML")
         else:
             res = await ai_engine.check_essay_text("", text, "")
             db.save_essay(user_id, "", "", text, res)
-            await context.bot.send_message(chat_id=user_id, text=f"🤖 <b>AI Xulosasi:</b>\n\n{res}", parse_mode="HTML")
+            await send_long_message(context.bot, user_id, f"🤖 <b>AI Xulosasi:</b>\n\n{res}", parse_mode="HTML")
     except Exception as e:
         await context.bot.send_message(chat_id=user_id, text=f"Xatolik yuz berdi: {e}")
 
@@ -461,7 +490,7 @@ async def receive_expert_feedback(update: Update, context: ContextTypes.DEFAULT_
     await update.message.reply_text("Javobingiz mijozga yuborildi!", reply_markup=get_main_keyboard())
     msg = f"👨‍🏫 <b>Ekspert javobi:</b>\n\n{update.message.text}"
     keyboard = [[InlineKeyboardButton(f"{i}⭐", callback_data=f"rate_{essay[2]}_{i}") for i in range(1, 6)]]
-    await context.bot.send_message(chat_id=essay[1], text=msg, parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
+    await send_long_message(context.bot, essay[1], msg, parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
     return ConversationHandler.END
 
 def main():
