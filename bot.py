@@ -293,13 +293,103 @@ async def receive_admin_card(update: Update, context: ContextTypes.DEFAULT_TYPE)
     await update.message.reply_text("Karta raqami muvaffaqiyatli o'zgartirildi!", reply_markup=get_main_keyboard())
     return ConversationHandler.END
 
+def extract_telegram_username(text: str) -> str:
+    text = text.strip()
+    if not text:
+        return ""
+    if text.startswith('@'):
+        return text
+    if "t.me/" in text:
+        parts = text.split("t.me/")
+        if len(parts) > 1:
+            sub = parts[1].split('/')[0]
+            if sub and not sub.startswith('+') and sub != 'joinchat':
+                return '@' + sub
+    import re
+    if re.match(r'^[a-zA-Z0-9_]+$', text):
+        return '@' + text
+    return ""
+
 async def receive_admin_channel_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.text == "🔙 Bekor qilish":
+    text = update.message.text.strip() if update.message.text else ""
+    if text == "🔙 Bekor qilish":
         await update.message.reply_text("Bekor qilindi", reply_markup=get_main_keyboard())
         return ConversationHandler.END
-    context.user_data['temp_channel_id'] = update.message.text
-    await update.message.reply_text("Kanal ssilkasi va nomini kiriting (Masalan: Bizning Kanal|https://t.me/kanal):", reply_markup=get_cancel_keyboard())
-    return ADMIN_CHANNEL_URL
+
+    if '|' in text:
+        parts = text.split('|')
+        if len(parts) >= 3:
+            cid = parts[0].strip()
+            title = parts[1].strip()
+            url = parts[2].strip()
+            db.add_channel(cid, title, url)
+            await update.message.reply_text(
+                f"✅ Kanal muvaffaqiyatli qo'shildi!\n\nID: <code>{cid}</code>\nNomi: <b>{title}</b>\nHavola: {url}",
+                parse_mode="HTML",
+                reply_markup=get_main_keyboard()
+            )
+            return ConversationHandler.END
+        elif len(parts) == 2:
+            cid = parts[0].strip()
+            url = parts[1].strip()
+            title = "Kanal"
+            try:
+                chat = await context.bot.get_chat(cid)
+                if chat.title:
+                    title = chat.title
+            except Exception:
+                pass
+            db.add_channel(cid, title, url)
+            await update.message.reply_text(
+                f"✅ Kanal muvaffaqiyatli qo'shildi!\n\nID: <code>{cid}</code>\nNomi: <b>{title}</b>\nHavola: {url}",
+                parse_mode="HTML",
+                reply_markup=get_main_keyboard()
+            )
+            return ConversationHandler.END
+
+    username = extract_telegram_username(text)
+    if username:
+        try:
+            chat = await context.bot.get_chat(username)
+            cid = str(chat.id)
+            title = chat.title
+            url = text if (text.startswith("http://") or text.startswith("https://")) else f"https://t.me/{chat.username}"
+            db.add_channel(cid, title, url)
+            await update.message.reply_text(
+                f"✅ Kanal muvaffaqiyatli qo'shildi!\n\nID: <code>{cid}</code>\nNomi: <b>{title}</b>\nHavola: {url}",
+                parse_mode="HTML",
+                reply_markup=get_main_keyboard()
+            )
+            return ConversationHandler.END
+        except Exception as e:
+            logger.error(f"Automatic channel resolve failed: {e}")
+            await update.message.reply_text(
+                f"❌ Kanalni avtomatik aniqlab bo'lmadi.\n"
+                f"Sababi: Bot kanalda admin emas yoki xato havola.\n\n"
+                f"Iltimos, kanal ID va nomini qo'lda quyidagi formatlardan birida kiriting:\n\n"
+                f"1. <code>KanalID | Havola</code> (Bot avtomatik nomini oladi)\n"
+                f"2. <code>KanalID | Nomi | Havola</code>\n\n"
+                f"Masalan: <code>-100123456789 | https://t.me/kanal_linki</code>",
+                parse_mode="HTML",
+                reply_markup=get_cancel_keyboard()
+            )
+            return ADMIN_CHANNEL_ID
+
+    if text.startswith('-') or text.isdigit():
+        context.user_data['temp_channel_id'] = text
+        await update.message.reply_text(
+            "Kanal ssilkasi va nomini kiriting (Masalan: Bizning Kanal|https://t.me/kanal):",
+            reply_markup=get_cancel_keyboard()
+        )
+        return ADMIN_CHANNEL_URL
+
+    await update.message.reply_text(
+        "Tushunarsiz format. Iltimos, kanal havolasini yuboring (masalan: @kanal yoki https://t.me/kanal) yoki quyidagi formatda kiriting:\n\n"
+        "<code>KanalID | Havola</code>",
+        parse_mode="HTML",
+        reply_markup=get_cancel_keyboard()
+    )
+    return ADMIN_CHANNEL_ID
 
 async def receive_admin_channel_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.text == "🔙 Bekor qilish":
@@ -430,7 +520,14 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text("Yangi karta raqamini kiriting:", reply_markup=get_cancel_keyboard())
         return ADMIN_CARD
     elif data == "admin_add_channel" and user.id == ADMIN_ID:
-        await query.message.reply_text("Kanal ID sini kiriting (-100...):", reply_markup=get_cancel_keyboard())
+        msg = (
+            "📢 <b>Kanal qo'shish</b>\n\n"
+            "Bot kanalda <b>admin</b> bo'lsa, kanal havolasini yuboring (masalan: <code>@kanal_username</code> yoki <code>https://t.me/kanal_username</code>).\n\n"
+            "Agar kanal <b>xususiy (private)</b> bo'lsa, quyidagi formatda yuboring:\n"
+            "<code>KanalID | Havola</code>\n\n"
+            "Masalan: <code>-1001234567890 | https://t.me/+invite_link</code>"
+        )
+        await query.message.reply_text(msg, parse_mode="HTML", reply_markup=get_cancel_keyboard())
         return ADMIN_CHANNEL_ID
     elif data == "admin_del_channel" and user.id == ADMIN_ID:
         await query.message.reply_text("O'chiriladigan Kanal ID sini kiriting:", reply_markup=get_cancel_keyboard())
@@ -504,16 +601,52 @@ async def receive_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 async def receive_expert_feedback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.text == "🔙 Bekor qilish":
+    if update.message.text and update.message.text == "🔙 Bekor qilish":
         await update.message.reply_text("Bekor qilindi", reply_markup=get_main_keyboard())
         return ConversationHandler.END
+
     essay_id = context.user_data.get('checking_essay_id')
     essay = db.get_human_essay(essay_id)
-    db.finish_human_essay(essay_id, 0, update.message.text)
+    if not essay:
+        await update.message.reply_text("Esse topilmadi.", reply_markup=get_main_keyboard())
+        return ConversationHandler.END
+
+    feedback_text = ""
+    is_voice = False
+    is_audio = False
+
+    if update.message.voice:
+        feedback_text = f"voice:{update.message.voice.file_id}"
+        is_voice = True
+    elif update.message.audio:
+        feedback_text = f"audio:{update.message.audio.file_id}"
+        is_audio = True
+    elif update.message.text:
+        feedback_text = update.message.text
+    else:
+        await update.message.reply_text("Iltimos, matnli xulosa, ovozli xabar yoki audio fayl yuboring:", reply_markup=get_cancel_keyboard())
+        return EXPERT_FEEDBACK
+
+    db.finish_human_essay(essay_id, 0, feedback_text)
     await update.message.reply_text("Javobingiz mijozga yuborildi!", reply_markup=get_main_keyboard())
-    msg = f"👨‍🏫 <b>Ekspert javobi:</b>\n\n{update.message.text}"
-    keyboard = [[InlineKeyboardButton(f"{i}⭐", callback_data=f"rate_{essay[2]}_{i}") for i in range(1, 6)]]
-    await send_long_message(context.bot, essay[1], msg, parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
+
+    user_id = essay[1]
+    expert_id = essay[2]
+    keyboard = [[InlineKeyboardButton(f"{i}⭐", callback_data=f"rate_{expert_id}_{i}") for i in range(1, 6)]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    if is_voice:
+        voice_file_id = update.message.voice.file_id
+        await context.bot.send_message(chat_id=user_id, text="👨‍🏫 <b>Ekspert javobi (ovozli xabar):</b>", parse_mode="HTML")
+        await context.bot.send_voice(chat_id=user_id, voice=voice_file_id, reply_markup=reply_markup)
+    elif is_audio:
+        audio_file_id = update.message.audio.file_id
+        await context.bot.send_message(chat_id=user_id, text="👨‍🏫 <b>Ekspert javobi (audio fayl):</b>", parse_mode="HTML")
+        await context.bot.send_audio(chat_id=user_id, audio=audio_file_id, reply_markup=reply_markup)
+    else:
+        msg = f"👨‍🏫 <b>Ekspert javobi:</b>\n\n{feedback_text}"
+        await send_long_message(context.bot, user_id, msg, parse_mode="HTML", reply_markup=reply_markup)
+
     return ConversationHandler.END
 
 def main():
@@ -530,7 +663,7 @@ def main():
         states={
             EXPERT_BIO: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_expert_bio)],
             RECEIPT: [MessageHandler(filters.PHOTO | filters.TEXT, receive_receipt)],
-            EXPERT_FEEDBACK: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_expert_feedback)],
+            EXPERT_FEEDBACK: [MessageHandler((filters.TEXT | filters.VOICE | filters.AUDIO) & ~filters.COMMAND, receive_expert_feedback)],
             ADMIN_PRICE: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_admin_price)],
             ADMIN_CARD: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_admin_card)],
             ADMIN_CHANNEL_ID: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_admin_channel_id)],
